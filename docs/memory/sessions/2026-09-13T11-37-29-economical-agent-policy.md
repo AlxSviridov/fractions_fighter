@@ -30,4 +30,4 @@ Automatic approval review rejected requested launcher execution because account 
 
 ## Git and deployment
 
-Branch main; prior `10f1475` verified pushed. This checkpoint commit/push is attempted below and result will be recorded before handoff. Firebase project remains `fractions-fighter-verdant`, release unverified.
+Branch main; prior `10f1475` verified pushed. `368ad33` committed all current integration/policy changes and was successfully pushed to origin/main. This follow-up records the verified push. Firebase project remains `fractions-fighter-verdant`, release unverified.

@@ -44,7 +44,7 @@ Playtester: critical browser review complete, automated replacement suite writte
 
 ## Git / hosting
 
-Remote: https://github.com/AlxSviridov/fractions_fighter.git . Initial checkpoint `830fa9e` pushed. Rebuild checkpoint `10f1475` is pushed. New fixes/policy are being checkpointed; see latest session for push status. Firebase project `fractions-fighter-verdant` exists; no verified Hosting release yet. Project name remains an infrastructure identifier despite game title change. No billing enabled. Node22 pinned; Node25 on this machine produces a Firebase-tool transitive engine warning.
+Remote: https://github.com/AlxSviridov/fractions_fighter.git . Initial checkpoint `830fa9e` pushed. Rebuild checkpoint `10f1475` is pushed. Integration fixes and economical-agent policy committed as `368ad33` and successfully pushed to origin/main. Firebase project `fractions-fighter-verdant` exists; no verified Hosting release yet. Project name remains an infrastructure identifier despite game title change. No billing enabled. Node22 pinned; Node25 on this machine produces a Firebase-tool transitive engine warning.
 
 ## Next actions
 
