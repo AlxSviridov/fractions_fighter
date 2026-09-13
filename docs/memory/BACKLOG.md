@@ -3,6 +3,7 @@
 Updated 2026-09-13. Owner's thirteen corrections supersede the old first-slice acceptance.
 
 ## Rebuild — implemented, integration verification pending
+
 - [x] Fractions Fighter name and shattered compass story.
 - [x] Typical main menu / New Game / hero creation / Continue / Load Game.
 - [x] Six reference portraits and distinct 3D silhouettes, three equipment classes.
@@ -17,7 +18,8 @@ Updated 2026-09-13. Owner's thirteen corrections supersede the old first-slice a
 - [x] All owner comments, design rationale and fleet policy saved.
 
 ## Current release blockers / checks
-- [ ] Transactional new/import save persistence and strict hero archive validation.
+
+- [x] Transactional new/import save persistence and strict hero archive validation; 55-test suite and build pass.
 - [ ] Full integrated browser test: menu → create → village → fight → loot/equip → all enemies → quest reward.
 - [ ] Multi-hero preservation, load/reload, export/import (valid/invalid) and hint reporting.
 - [ ] Optional quick timer expiry, reduced motion, keyboard / mouse and compact UI.
@@ -25,7 +27,14 @@ Updated 2026-09-13. Owner's thirteen corrections supersede the old first-slice a
 - [ ] Clickable launcher executed and local serving verified.
 - [ ] GitHub checkpoint / CI, Firebase release and live smoke test.
 
+## Workflow amendment completed
+
+- [x] On-demand workers, explicit Terra/Sonnet defaults and frontier orchestration in AGENTS.md / TEAM_WORKFLOW.md.
+- [x] Bite-size code + memory checkpoint policy and stable owner preferences.
+- [ ] Run rewritten browser suite; current launcher check rejected by automatic approval review due to usage limit.
+
 ## Next gameplay depth
+
 - [ ] Owner/child playtest feedback; the owner has not accepted this rebuild as the final MVP.
 - [ ] More animated enemies, encounter telegraphs, reactive combat and authored map discoveries.
 - [ ] Additional character meshes, equipment silhouettes and animation polish.
@@ -34,6 +43,7 @@ Updated 2026-09-13. Owner's thirteen corrections supersede the old first-slice a
 - [ ] Tablet performance/accessibility verification beyond compact responsive checks.
 
 ## Later architecture
+
 - [ ] Deterministic streamed world chunks and biomes; reachable quest generation.
 - [ ] Parent-owned cloud profiles / conflict-safe saves / security tests.
 - [ ] Conservative adaptive difficulty and spaced learning evidence.

@@ -17,3 +17,7 @@
 ## Superseding owner corrections, 2026-09-13
 
 Game name is Fractions Fighter, not Verdant. The owner rejected the first slice as an MVP. All thirteen comments are saved in `docs/feedback/2026-09-13-owner-review.md`. Require actual inventory/loot/XP/early combat, safe village and wilds, proper menu → character creation → play, local clickable launcher, thematic fonts, richer reference-based heroes and maths action tiers (quick falling comparisons for simple actions; untimed hard calculations for powerful abilities). A bounded specialist fleet with independent maths review and critical gamer-perspective playtesting is now explicitly requested.
+
+## Cost and checkpoint amendment, 2026-09-13
+
+Use subagents only when necessary. Routine workers should use Terra / Sonnet; Astra / Fable / Opus high should primarily orchestrate and handle hard decisions/reviews. Do not inherit frontier models for easy tasks. Deliver bite-size increments and commit all intended changes with updated progress documentation, then push to GitHub. Earlier fleet request describes available specialist roles, not mandatory concurrent agents.

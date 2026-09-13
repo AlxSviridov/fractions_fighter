@@ -34,4 +34,12 @@ Firebase Hosting is the authorised host. Never deploy to an unrelated existing F
 
 ## Owner correction and specialist fleet
 
-Read `docs/feedback/2026-09-13-owner-review.md` before product work. It supersedes the original slice acceptance assumptions. Inventory, loot, immediate enemies, a safe village, proper new/load menus, substantial hero silhouettes and action-tier maths are required now. Use the bounded rotating specialist workflow in `docs/TEAM_WORKFLOW.md`, explicitly requested by the owner. Document independent maths review and critical playtest findings.
+Read `docs/feedback/2026-09-13-owner-review.md` before product work. It supersedes the original slice acceptance assumptions. Inventory, loot, immediate enemies, a safe village, proper new/load menus, substantial hero silhouettes and action-tier maths are required now. Use the cost-conscious specialist workflow in `docs/TEAM_WORKFLOW.md`, amended by the owner on 2026-09-13. A fleet is a roster of available roles, not a requirement to launch agents every session. Document independent maths review and critical playtest findings.
+
+## Model budget and bite-size delivery
+
+- Launch a subagent only when a concrete, bounded task benefits from delegation or independent review. Handle trivial edits directly; avoid duplicate exploration and idle agents.
+- Default delegated routine implementation, tests and documentation to **Terra** (`gpt-5.6-terra`) or **Sonnet** when that runtime actually offers it. Explicitly select the model; never silently inherit a frontier orchestrator. Use a compact brief and bounded files/context.
+- **Astra / Fable / Opus high** are primarily orchestrators: plan, define interfaces, resolve hard tradeoffs, integrate and review. Do not spend frontier capacity on routine coding that a junior model can handle. Use a frontier specialist only for a specific difficult problem or failed cheaper attempt, with the reason recorded. Never claim an unavailable model was used.
+- Work in small, reviewable increments. For each completed increment, run relevant checks, update STATE/BACKLOG and the session note, then commit all intended code, tests and documentation together and push to the authorised repository. Preserve unfinished work in an explicitly labelled checkpoint when interrupted; never mark it verified.
+- Record actual model, task, result and any escalation in the session note. Do not restart expensive agents just because they already exist. If model selection cannot be enforced, keep the work local or record the constraint; do not silently fall back to a frontier model.

@@ -1,157 +1,200 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-// Browser tests use visible text and user controls. Math answers are calculated
-// independently from the displayed problem, not read from internal game state.
-async function start(page: Page) {
-  await page.goto('/');
+
+// Answers come only from the rendered question, never the generator or save.
+async function createHero(page: Page, name: string, avatar = 'The Mooncat') {
+  await page.getByRole('button', { name: 'New game', exact: true }).click();
+  await page.getByRole('button', { name: avatar, exact: true }).click();
+  await page.getByLabel('Your hero’s name').fill(name);
+  await page.getByRole('button', { name: 'Enter Haven', exact: true }).click();
   await expect(page.locator('.world')).toHaveAttribute('data-ready', 'true');
-  await page.getByRole('button', { name: 'Begin your adventure' }).click();
-  await page.getByLabel('What should the map call you?').fill('Test explorer');
-  await page.getByRole('button', { name: 'Long', exact: true }).click();
-  await page.getByRole('button', { name: 'Fern outfit', exact: true }).click();
-  await page.getByRole('button', { name: 'Step into the wilds' }).click();
+  await expect(page.getByRole('heading', { name: 'Haven', exact: true })).toBeVisible();
+  await expect(page.locator('.ff-player')).toContainText(name);
 }
-async function visit(page: Page, landmark: string) {
-  await page.getByRole('button', { name: `Map: The ${landmark}`, exact: true }).click();
-  const interact = page.locator('.interact');
-  await expect(page.locator('.dock-copy strong')).toHaveText(`The ${landmark}`, { timeout: 30000 });
-  await expect(interact).toBeEnabled();
-  await interact.click();
+async function approach(page: Page, enemy: string) {
+  await page
+    .locator('.enemy-tracker')
+    .getByRole('button', { name: new RegExp(`^${enemy}`) })
+    .click();
+  await expect(page.locator('.combat-choice h2')).toHaveText(enemy, { timeout: 30000 });
+}
+async function cast(page: Page, action: 'Quick strike' | 'Power skill' | 'Ancient ritual') {
+  await page
+    .locator('.combat-choice')
+    .getByRole('button', { name: new RegExp(`^${action}`) })
+    .click();
   await expect(page.getByRole('dialog')).toBeVisible();
 }
-async function solveVisible(page: Page) {
-  const choiceButtons = page.getByRole('button', { name: /^Choose / });
-  if (await choiceButtons.count()) {
-    const labels = await choiceButtons.evaluateAll((nodes) =>
-      nodes.map((n) => n.getAttribute('aria-label')!.replace('Choose ', '')),
-    );
-    const values = labels.map((v) =>
-      v.includes('/')
-        ? Number(v.split('/')[0]) / Number(v.split('/')[1])
-        : Number(v.replace('%', '')) / 100,
-    );
+async function quickAnswer(page: Page) {
+  const [left, right] = await page.locator('.rune-fall-card > span').allTextContents();
+  function rational(value: string): [number, number] {
+    if (value.endsWith('%')) return [Number(value.slice(0, -1)), 100];
+    const [n, d] = value.split('/').map(Number);
+    return [n, d];
+  }
+  const [a, b] = rational(left),
+    [c, d] = rational(right);
+  return a * d < c * b ? '<' : a * d > c * b ? '>' : '=';
+}
+async function solve(page: Page) {
+  if (await page.locator('.rune-fall-card').count()) {
     await page
-      .getByRole('button', { name: `Choose ${labels[values[0] > values[1] ? 0 : 1]}`, exact: true })
+      .getByRole('button', { name: `Answer ${await quickAnswer(page)}`, exact: true })
       .click();
   } else {
-    const prompt = await page.locator('.math-prompt').innerText(),
-      numbers = prompt.match(/\d+/g)!.map(Number);
+    const prompt = await page.locator('.math-prompt').innerText();
+    const numbers = prompt.match(/\d+/g)!.map(Number);
     let answer: number;
     if (prompt.includes('×')) answer = numbers[0] * numbers[1];
     else if (prompt.includes('÷')) answer = numbers[0] / numbers[1];
     else if (prompt.includes('%')) answer = (numbers[0] * numbers[1]) / 100;
-    else answer = prompt.includes('area') ? numbers[0] * numbers[1] : 2 * (numbers[0] + numbers[1]);
+    else if (prompt.includes('area')) answer = numbers[0] * numbers[1];
+    else if (prompt.includes('perimeter')) answer = 2 * (numbers[0] + numbers[1]);
+    else throw new Error(`No independent answer strategy for ${prompt}`);
+    await expect(page.getByLabel(/^Your answer/)).toBeFocused();
     await page.getByLabel(/^Your answer/).fill(String(answer));
-    await page.getByRole('button', { name: 'Cast the magic' }).click();
+    await page.getByLabel(/^Your answer/).press('Enter');
   }
-  await expect(page.getByText('Beautifully done, Test explorer.')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.impact-banner')).toHaveCount(0);
 }
-test('complete expedition with hints/retries, save reload, rewards, parent metrics and new seed', async ({
+
+test('complete expedition, supported quick maths, equipment, quest reward and save transfer', async ({
   page,
 }) => {
   const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await start(page);
-  await visit(page, 'Tide Waystone');
-  await page.getByRole('button', { name: /A little help/ }).click();
-  await expect(page.getByText('A little guidance', { exact: true })).toBeVisible();
-  // Close/reopen preserves hint evidence.
-  await page.getByRole('button', { name: 'Close dialog' }).click();
-  await page.locator('.interact').click();
-  await expect(page.getByText('A little guidance', { exact: true })).toBeVisible();
-  await solveVisible(page);
-  await page.getByRole('button', { name: 'Return to the wilds' }).click();
-  await visit(page, 'Ember Ward');
-  await page.getByLabel('Your answer', { exact: true }).fill('999999');
-  await page.getByRole('button', { name: 'Cast the magic' }).click();
-  await expect(page.getByText(/Not quite yet/)).toBeVisible();
-  await solveVisible(page);
-  await page.getByRole('button', { name: 'Return to the wilds' }).click();
-  await visit(page, 'Root Shrine');
-  await solveVisible(page);
-  await page.getByRole('button', { name: 'Return to the wilds' }).click();
-  await visit(page, 'Sunken Cache');
-  await solveVisible(page);
-  await page.getByRole('button', { name: 'Return to the wilds' }).click();
-  await page.reload();
-  await expect(page.locator('.quest-seals small')).toHaveText('3 / 3');
-  await expect(page.locator('.player-card strong')).toHaveText('Test explorer');
-  await visit(page, 'Jade Guardian');
-  for (let stage = 0; stage < 3; stage++) {
-    await solveVisible(page);
-    await page
-      .getByRole('button', { name: stage === 2 ? 'Discover your reward' : 'Face the next ward' })
-      .click();
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await createHero(page, 'Rune Tester');
+  await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
+  await expect(page.locator('.enemy-tracker').getByRole('button', { name: / HP$/ })).toHaveCount(5);
+  await approach(page, 'Bramble Prowler');
+  await cast(page, 'Quick strike');
+  const answer = await quickAnswer(page);
+  await page
+    .getByRole('button', { name: `Answer ${answer === '<' ? '>' : '<'}`, exact: true })
+    .click();
+  await expect(page.locator('.rune-feedback')).toContainText('Try again');
+  await expect(page.locator('.health-orb strong')).not.toHaveText('100');
+  await page.getByRole('button', { name: /Show a hint/ }).click();
+  await expect(page.locator('.hint-box')).toBeVisible();
+  await solve(page);
+  await cast(page, 'Power skill');
+  await solve(page);
+  await expect(page.locator('.loot-notification')).toContainText('Tidefang');
+  await expect(page.locator('.loot-notification')).toContainText('Attack 12 → 14');
+  await page.getByRole('button', { name: 'Inspect', exact: true }).click();
+  await expect(page.locator('.upgrade-comparison')).toHaveText('Total attack: 12 → 14');
+  await page.getByRole('button', { name: 'Equip Tidefang', exact: true }).click();
+  await expect(page.locator('.inventory-stats')).toContainText('14 Attack');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  for (const enemy of ['Canopy Raider', 'Thornback Boar', 'Corsair Lookout', 'Shard Guardian']) {
+    await approach(page, enemy);
+    await cast(page, 'Ancient ritual');
+    await solve(page);
+    await expect(page.locator('.loot-notification')).toBeVisible();
+    await page.getByRole('button', { name: 'Equip now', exact: true }).click();
+    await expect(
+      page.locator('.enemy-tracker').getByRole('button', { name: `${enemy} CLEARED`, exact: true }),
+    ).toBeDisabled();
   }
-  await expect(page.getByRole('heading', { name: 'The jungle remembers you.' })).toBeVisible();
-  await page.screenshot({ path: 'test-results/expedition-complete.png' });
-  await page.getByRole('button', { name: 'See what you learned' }).click();
-  await expect(page.locator('.report-summary').getByText('7', { exact: true })).toBeVisible();
-  await expect(page.locator('.report-summary').getByText('435', { exact: true })).toBeVisible();
-  await expect(
-    page.locator('.topic-row').filter({ hasText: 'Fractions & comparisons' }),
-  ).toContainText('0%');
-  await expect(page.locator('.topic-row').filter({ hasText: 'Multiplication' })).toContainText(
-    '50%',
+  await expect(page.locator('.ff-quest')).toContainText('5 / 5 threats overcome');
+  await page.getByRole('button', { name: 'Return to Haven', exact: true }).click();
+  await page.getByRole('button', { name: /Speak to Mira/ }).click();
+  await page.getByRole('button', { name: 'Claim Mira’s reward', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Claim Mira’s reward', exact: true })).toHaveCount(
+    0,
   );
-  const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export progress' }).click();
-  const exported = await download;
-  expect(exported.suggestedFilename()).toContain('Test-explorer');
-  await page.getByRole('button', { name: 'Close dialog' }).click();
-  await page.getByRole('button', { name: 'Customise explorer' }).click();
-  await expect(page.getByRole('button', { name: 'Jade keeper outfit', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Jade keeper outfit', exact: true }).click();
-  await page.getByRole('button', { name: 'Save your explorer' }).click();
-  await page.getByRole('button', { name: 'See your discovery' }).click();
-  await page.getByRole('button', { name: 'Follow a new map' }).click();
-  await expect(page.locator('.region-title')).toContainText('Expedition 02');
-  await expect(page.locator('.quest-seals small')).toHaveText('0 / 3');
-  await expect(page.locator('.player-card')).toContainText('Level 3');
-  await page.getByRole('button', { name: 'For parents' }).click();
-  await page.getByLabel('Import progress file').setInputFiles((await exported.path())!);
-  await expect(page.locator('.region-title')).toContainText('Expedition 01');
-  await expect(page.locator('.report-summary').getByText('435', { exact: true })).toBeVisible();
+  await expect(page.locator('.ff-player')).toContainText('360 XP');
+  await expect(page.locator('.ff-player')).toContainText('197 gold');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.screenshot({ path: 'test-results/expedition-complete.png' });
+  await page.reload();
+  await page.getByRole('button', { name: /Continue adventure/ }).click();
+  await expect(page.getByRole('button', { name: 'Begin the next expedition' })).toBeVisible();
+  await expect(page.locator('.ff-player')).toContainText('360 XP');
+  await page.getByRole('button', { name: 'Main menu', exact: true }).click();
+  await page.getByRole('button', { name: 'Learning journal', exact: true }).click();
+  await expect(page.locator('.report-summary strong')).toHaveText(['6', '5', '5']);
+  const fractions = page.locator('.topic-row').filter({ hasText: 'Fractions & comparisons' });
+  await expect(fractions).toContainText('0%');
+  await expect(fractions.locator(':scope > span').last()).toHaveText('1');
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export this hero', exact: true }).click();
+  const exported = await downloaded;
+  expect(exported.suggestedFilename()).toBe('fractions-fighter-Rune-Tester.json');
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: /Continue adventure/ }).click();
+  await page.getByRole('button', { name: 'Begin the next expedition' }).click();
+  await expect(page.locator('.zone-heading')).toContainText('EXPEDITION 2');
+  await expect(page.locator('.ff-quest')).toContainText('0 / 5 threats overcome');
+  await page
+    .getByLabel('Import save file', { exact: true })
+    .setInputFiles((await exported.path())!);
+  await expect(page.getByRole('heading', { name: 'Haven', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Begin the next expedition' })).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Game navigation' })
+    .getByRole('button', { name: 'Inventory', exact: true })
+    .click();
+  await expect(page.locator('.pack-item')).toHaveCount(6);
   expect(errors).toEqual([]);
 });
-test('settings, keyboard movement, import rejection, mobile layout and dialog focus', async ({
+
+test('separate heroes, settings persistence, keyboard controls, import rejection and compact layout', async ({
   page,
 }) => {
-  await start(page);
+  await page.goto('/');
+  await createHero(page, 'First Hero', 'The Starforged');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: /Pathfinder Larger numbers/ }).click();
-  await page.getByLabel('Reduced motion').check();
-  await page.getByRole('button', { name: 'Back to the adventure' }).click();
-  await expect(page.locator('.region-title')).toContainText('Pathfinder');
-  await expect(page.locator('main')).toHaveClass(/reduced-motion/);
-  // Focus world, then check that the map marker actually moves with keyboard input.
-  const marker = page.locator('.minimap svg > circle').last();
-  const before = await marker.getAttribute('cy');
-  await page.getByTestId('world-canvas').focus();
-  await page.keyboard.down('w');
-  await page.waitForTimeout(500);
-  await page.keyboard.up('w');
-  await expect(marker).not.toHaveAttribute('cy', before!);
-  await page.getByRole('button', { name: 'For parents' }).click();
   await page
-    .getByLabel('Import progress file')
-    .setInputFiles({
-      name: 'invalid.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from('{"version":99}'),
-    });
-  await expect(page.getByRole('alert')).toContainText('not a supported Verdant save');
-  await page.getByRole('button', { name: 'Close dialog' }).click();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator('.touch-controls')).toBeVisible();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(page.getByRole('dialog')).toBeInViewport();
-  await page.screenshot({ path: 'test-results/mobile-settings.png' });
-  await page.getByRole('button', { name: 'Back to the adventure' }).press('Tab');
+    .locator('.difficulty-list')
+    .getByRole('button', { name: /Pathfinder/ })
+    .click();
+  await page.getByLabel(/Reduced motion/).check();
+  await page.getByLabel(/Falling quick runes/).uncheck();
+  await page.getByRole('button', { name: 'Save & return' }).press('Tab');
   await expect(page.getByRole('button', { name: 'Close dialog' })).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(
-    false,
-  );
+  await expect(page.locator('main')).toHaveClass(/reduced-motion/);
+  await page.keyboard.press('i');
+  await expect(page.getByRole('dialog')).toContainText('Every treasure tells a story.');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('j');
+  await expect(page.getByRole('dialog')).toContainText('The Broken Compass');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Main menu', exact: true }).click();
+  await createHero(page, 'Second Hero', 'The Stormkin');
+  await page.getByRole('button', { name: 'Main menu', exact: true }).click();
+  await page.getByRole('button', { name: /Load game/ }).click();
+  await expect(page.locator('.saved-hero-list > button')).toHaveCount(2);
+  await page
+    .locator('.saved-hero-list')
+    .getByRole('button', { name: /First Hero/ })
+    .click();
+  await expect(page.locator('.ff-player')).toContainText('First Hero');
+  await page.reload();
+  await page.getByRole('button', { name: /Continue adventure First Hero/ }).click();
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(
+    page.locator('.difficulty-list').getByRole('button', { name: /Pathfinder/ }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel(/Reduced motion/)).toBeChecked();
+  await expect(page.getByLabel(/Falling quick runes/)).not.toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.getByLabel('Import save file', { exact: true }).setInputFiles({
+    name: 'invalid.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"version":99}'),
+  });
+  await expect(page.getByRole('alert')).toContainText('not a supported Fractions Fighter save');
+  await page.getByRole('button', { name: 'Dismiss storage message' }).click();
+  await expect(page.locator('.ff-player')).toContainText('First Hero');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeInViewport();
+  await expect(page.getByRole('button', { name: 'Close dialog' })).toBeInViewport();
+  await page.screenshot({ path: 'test-results/compact-settings.png' });
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });
