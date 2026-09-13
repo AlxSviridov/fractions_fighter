@@ -6,7 +6,7 @@ Jade / petrol shadows, malachite canopy, warm weathered limestone, antique brass
 
 ## Assets now
 
-All world meshes are original, generated in `src/game/world.ts`: explorer, palms, broad-leaf trees, rocks, layered ruin, guardian, relics, water, camp and foliage. No downloaded asset licenses to resolve. Lucide icons are ISC licensed through the package. System fonts avoid external tracking and missing-font requests. Procedural animations include explorer stride, water/motes, hovering relics and guardian idle.
+All world meshes are original, generated in `src/game/world.ts`: six hero silhouettes, class weapons, village buildings, RPG creatures/pirates/guardian, palms, broad-leaf trees, rocks, layered ruin, guardian, relics, water, camp and foliage. Six owner-supplied portraits are copied from `precedent projects  refs/characters/avatars` to `public/assets/heroes`; they are used directly in menus and inventory. Their 3D counterparts are original procedural interpretations. The reference files do not establish a third-party redistribution license; confirm provenance before a public art release. Lucide icons are ISC licensed through the package. Cinzel headings and Crimson Pro body text are bundled from Fontsource under their SIL Open Font Licenses; no remote font requests. Lucide and font license files remain in the corresponding locked packages. Procedural animations include explorer stride, water/motes, hovering relics and guardian idle.
 
 ## Blender later
 

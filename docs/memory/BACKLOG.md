@@ -24,14 +24,14 @@ Updated 2026-09-13. Owner's thirteen corrections supersede the old first-slice a
 - [ ] Multi-hero preservation, load/reload, export/import (valid/invalid) and hint reporting.
 - [ ] Optional quick timer expiry, reduced motion, keyboard / mouse and compact UI.
 - [ ] Playtester review findings addressed and documented honestly.
-- [ ] Clickable launcher executed and local serving verified.
+- [x] Clickable launcher executed, built, served on 4175 and opened; browser creation/village/wilds verified.
 - [ ] GitHub checkpoint / CI, Firebase release and live smoke test.
 
 ## Workflow amendment completed
 
 - [x] On-demand workers, explicit Terra/Sonnet defaults and frontier orchestration in AGENTS.md / TEAM_WORKFLOW.md.
 - [x] Bite-size code + memory checkpoint policy and stable owner preferences.
-- [ ] Run rewritten browser suite; current launcher check rejected by automatic approval review due to usage limit.
+- [ ] Run rewritten browser suite (Terra QA active); earlier launcher approval blocker resolved.
 
 ## Next gameplay depth
 

@@ -10,17 +10,17 @@ Later coverage: decimal arithmetic, equivalent fractions, fraction operations, r
 
 ## Correctness requirements
 
-Generate questions from correct mathematical constructions; don't generate arbitrary prose and ask a model to judge correctness. Bound operands, prevent duplicate comparison choices and ambiguous equality, ensure division has intended remainder policy. Deterministic seeds support reproduction. Tests use independently computed expected values across many seeds and all difficulty bands. Each question has a stable ID and template version so future fixes can identify affected attempts.
+Generate questions from correct mathematical constructions; don't generate arbitrary prose and ask a model to judge correctness. Bound operands, prevent duplicate comparison choices and ambiguous equality, ensure division has intended remainder policy. Deterministic seeds support reproduction. Tests use independently computed expected values across many seeds and all difficulty bands. Each active cast has a unique ID. Generator version attribution in stored attempts remains future work.
 
 ## Feedback
 
-Wrong answers are informative, not humiliating. Encourage retry; show a worked route on request; permit leaving focus safely. Corrected completion earns the adventure reward. Learning evidence keeps first try, later tries and hints distinct so retrying cannot inflate mastery. No forced timer. Response time is contextual and paused when hidden; never penalise disability or careful reasoning. First-try accuracy excludes a solution shown before answer as independent success.
+Wrong answers are informative, not humiliating. Encourage retry; show a worked route on request; permit leaving focus safely. Corrected completion earns the adventure reward. Learning evidence keeps first try, later tries and hints distinct so retrying cannot inflate mastery. Only easy comparisons offer a falling 12-second rune, switchable off. Expiry relaxes the question without damage; larger calculations are always untimed. Response time is contextual and paused when hidden; never penalise disability or careful reasoning. First-try accuracy excludes a solution shown before answer as independent success.
 
 ## Parent report
 
 Show actual topic counts, independent first-try accuracy, assisted completions and a conservative next practice suggestion. Empty topics read “Not explored yet”; small samples read “More practice needed”. No invented baseline or mastery percentage. Aggregate by encountered question ID, not raw attempt count. Failed/abandoned questions remain evidence. A repeat expedition generates new question IDs. Show difficulty and explain metrics.
 
-First slice report is a local view available from the game; it is not password-protected parent access. It is useful for supervised use. Cloud parent access requires authentication in a later phase.
+Current report is a local view available from the game; it is not password-protected parent access. It is useful for supervised use. Cloud parent access requires authentication in a later phase.
 
 ## Adaptation (later)
 

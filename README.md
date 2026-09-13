@@ -1,28 +1,30 @@
-# Verdant — The Lost Map
+# Fractions Fighter
 
-A browser adventure where maths awakens an ancient jungle. Original 3D exploration, relic puzzles and a guardian encounter for ages 9–11 preparing maths for 11+.
+An isometric jungle adventure for ages 9–11 where maths powers strikes, spells and ancient rituals. Create a hero in Haven, explore the wilds, battle creatures and pirates, collect equipment and restore the Shattered Compass.
 
-**Status:** first playable vertical slice in development. See [current state](docs/memory/STATE.md) for verified features and deployment, and [roadmap](docs/ROADMAP.md) for the larger game.
+**Status:** playable RPG rebuild under verification, not yet an owner-accepted MVP. [Current state](docs/memory/STATE.md) records exact checks, deployment and remaining work.
 
-## Run
+## Play from this folder
+
+On macOS, double-click **[Launch Fractions Fighter.command](Launch%20Fractions%20Fighter.command)**. It builds the game and opens your browser. Keep its Terminal window open while playing; Control-C stops the server. First use needs Node.js 22 LTS and an internet connection to install locked dependencies. Subsequent launches use local assets.
+
+Start with **New game**, choose your hero and calling, then enter Haven. Use **Continue adventure** or **Load game** to resume. Click the ground to move and a monster to approach. Inventory is available in the top navigation or with **I**; **J** opens quests. Simple strikes use quick comparisons; power skills and rituals allow unlimited thinking time. Settings can disable falling runes.
+
+## Develop
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Node 22 LTS recommended. `npm run check` runs tests and production build. `npm run test:e2e` runs browser checks (install Chromium with `npx playwright install chromium` first).
+Node 22 LTS recommended. `npm run check` tests and builds; `npm run test:e2e` checks the production bundle (install Chromium with `npx playwright install chromium` first).
 
 ## Continue on any model or device
 
-Start with [AGENTS.md](AGENTS.md), then [STATE](docs/memory/STATE.md), [BACKLOG](docs/memory/BACKLOG.md), [preferences](docs/memory/USER_PREFERENCES.md) and the newest [session](docs/memory/sessions). Claude follows the same instructions through [CLAUDE.md](CLAUDE.md). End sessions with `npm run memory -- descriptive-slug`, update state, and commit/push code and memory together.
+Read [AGENTS.md](AGENTS.md), [STATE](docs/memory/STATE.md), [BACKLOG](docs/memory/BACKLOG.md), [preferences](docs/memory/USER_PREFERENCES.md) and the latest [session](docs/memory/sessions). [CLAUDE.md](CLAUDE.md) points to the same rules. Use [on-demand economical specialists](docs/TEAM_WORKFLOW.md), small verified increments and code-plus-memory GitHub checkpoints.
 
-## Design
+- [Game design](docs/GAME_DESIGN.md) · [Architecture](docs/ARCHITECTURE.md)
+- [Learning design](docs/LEARNING_DESIGN.md) · [Art pipeline](docs/ART_DIRECTION.md)
+- [Roadmap](docs/ROADMAP.md) · [Deployment](docs/DEPLOYMENT.md) · [Owner feedback](docs/feedback/2026-09-13-owner-review.md)
 
-- [Game design and the maths / action loop](docs/GAME_DESIGN.md)
-- [Architecture and save strategy](docs/ARCHITECTURE.md)
-- [Learning design and parent evidence](docs/LEARNING_DESIGN.md)
-- [Art direction and Blender pipeline](docs/ART_DIRECTION.md)
-- [Roadmap](docs/ROADMAP.md) · [Deployment](docs/DEPLOYMENT.md) · [Decisions](docs/decisions)
-
-GitHub: https://github.com/AlxSviridov/fractions_fighter . Intended host: Firebase Hosting. No third-party child analytics. First slice progress is stored in your browser; export/import transfers it manually. It is not yet cloud-synchronised.
+[GitHub repository](https://github.com/AlxSviridov/fractions_fighter). Firebase is the authorised host. Heroes save locally in each browser; export/import in Learning journal transfers progress between devices. Git backs up the project, not private browser saves. No cloud sync or child analytics service is implemented.

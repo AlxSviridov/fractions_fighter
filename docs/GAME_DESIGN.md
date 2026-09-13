@@ -1,55 +1,47 @@
-# Verdant — The Lost Map
+# Fractions Fighter — The Shattered Compass
 
-Status: design baseline, 2026-09-12. Working title; repository remains fractions_fighter.
+Current design: 13 September 2026. Supersedes the rejected Verdant seal-puzzle prototype. Owner feedback is canonical in `feedback/2026-09-13-owner-review.md`; implementation evidence is in `memory/STATE.md`.
 
-## Promise
+## Promise and story
 
-You followed a map that should not exist. Beyond the waterfall lies a forgotten jungle kingdom. Its paths, creatures and relics answer to the patterns hidden in numbers. Recover the scattered compass seals and find a way home.
+A young explorer follows an impossible map beyond a waterfall. The hidden world has fractured: its ancient compass is scattered among wild creatures, pirate camps and magical guardians. Haven is the last safe settlement. Scout Mira asks a new Fractions Fighter to recover the pieces and restore the paths home. The name describes both the shattered world and the mathematical understanding needed to mend it.
 
-A beautiful, generous adventure where understanding maths gives you power. Ages 9–11, desktop browser first. Original stylised 3D, an elevated isometric camera, warm carved stone against deep jade foliage, turquoise magic and parchment accents. No guns, gore, advertisements, paid random rewards or punishment for missing a day.
+Original jungle fantasy for ages 9–11, laptop browser first. Melee, bows and relic magic; no firearms or gore. Isometric camera, click-to-move and click-to-approach enemies. Progress should feel earned through discoveries, equipment and growing capability. Engagement is a design hypothesis to test with children, not an established claim.
 
-## The central design problem: thinking takes time
+## Implemented expedition
 
-A long calculation cannot be priced like an ordinary sword swing. Maths is a high-value decision, not an animation tax. Movement, looking around, collecting rewards and choosing a route are free. One short answer opens a path, restores substantial energy, counters an entire attack or wins a small encounter. One demanding answer can end a boss phase or unlock a room, not shave off 5% of an enemy's health.
+1. Main menu → New Game → choose name, one of six reference-inspired heroes and Warden/Ranger/Arcanist → enter Haven. Existing heroes remain in Load Game.
+2. Prepare in the safe village. Meet Mira through the quest panel, inspect equipment, recover health and draughts. Click the gate or Enter the wilds.
+3. Five enemies are available immediately: two animals, two pirates and a shard guardian. Click ground freely, click a monster to approach, choose an action. The trail list offers an accessible target shortcut.
+4. Solve a task appropriate to the chosen action. Show the attack and its consequence in the world; every defeated enemy awards gear, XP and gold. Compare equipment totals before equipping.
+5. Defeat the five threats, return to Mira, claim the compass quest reward, then begin another expedition. Equipment and learning evidence persist. Quitting after any resolved action is safe.
 
-First slice: approach a point of interest, press E or interact, enter a protected focus state, solve, see the world respond, collect a tangible reward, move on. No countdown and no incoming damage while a question is open. Wrong answers reveal support, permit retry and do not erase previously won rewards. Hints are always available and recorded separately from independent success.
+## Thinking must be worth the action
 
-Future combat: 10–25 seconds of free movement / dodging / melee between maths decisions; a visibly telegraphed focus opportunity freezes hostile simulation. A short calculation charges a whole quiver or shield cycle. A two-minute ritual delivers an encounter-changing action. Do not insert questions on every input. Difficulty controls mathematics, not reaction speed.
+| Action                             | Mathematical cost                                    | Current consequence                                  |
+| ---------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| Move, inspect, equip, choose route | None                                                 | Free exploration and decisions                       |
+| Quick strike                       | Easy fraction/percentage comparison, choose < = >    | 1× attack; ordinary first enemies take a few strikes |
+| Power skill                        | Untimed multiplication, percentage or rectangle task | 3× attack; usually resolves an early enemy           |
+| Ancient ritual                     | Untimed larger exact division, optional working area | 7× attack; can resolve the first guardian            |
+| Healing draught                    | Untimed focus calculation                            | Substantial healing, consumes a draught              |
 
-## First playable slice vs full MVP
+The optional falling quick rune allows 12 seconds, then relaxes without damage. Let me think, hints and reduced motion remove time pressure. Power and ritual questions never use a reflex timer. Wrong combat answers incur a modest ward/health cost and allow retry; rescue returns a fallen hero to Haven without deleting loot or XP. The world does not attack while the child is thinking.
 
-The first slice validates exploration → maths → visible consequence → reward. It has one compact generated jungle clearing with a ruin, three seal encounters, treasure and a multi-question guardian. It can generate another bounded expedition after completion. It is NOT yet an infinite world or a full action RPG. A complete first run should take roughly 5–12 minutes depending on reading and maths. Repeated expeditions support a longer sitting, but a polished 30-minute narrative session requires more content and playtesting.
+Current combat is protected maths-driven action selection. It is not yet a continuous dodge/melee action system. Next experiment: short free combat intervals with telegraphed threats and a maths charge that powers several moves. Do not add a task to every click or require ten long calculations for one enemy.
 
-The child-pilot MVP adds 3 linked areas, approximately 15–25 meaningful maths decisions, two creature types, pirate encounters, a proper boss, a compact inventory and an authored 20–30 minute journey with a safe stopping point every few minutes. Release the tested first slice early for owner feedback; do not label unimplemented mechanics complete.
+## Reward and identity
 
-## Expedition structure
+Three equipment slots: weapon, armour and relic. Guaranteed early drops make the first action worthwhile; rarity, stat comparisons, equipment visuals and level growth make progress visible. Quest and enemy rewards are idempotent. Gold currently accumulates; a useful forge/shop is a next increment, not a pretend working service. Topic affinities are recorded on loot but do not yet control questions or grant special powers.
 
-1. Camp: personalise explorer, choose maths difficulty, read a two-sentence mission.
-2. Explore: follow stepping stones and discover optional caches; free WASD/arrow or click navigation.
-3. Three seals: fraction comparison at a waystone, multiplication at a ward, percentage or geometry at a ruin.
-4. Guardian: three protected puzzle phases across different topics, ending with a division ritual. Each success visibly progresses the encounter.
-5. Resolution: compass relic, experience, an outfit unlock, topic summary, return or new seeded expedition.
+Six supplied portraits are used directly. Their world models are original polygonal interpretations, not exact 2D-to-3D reconstructions. Identity is chosen before play; loot changes equipment. Full hair/accessory/body editing, close-up 3D preview and more authored costumes remain required improvements.
 
-## Progression and rewards
+## Longer experience
 
-Experience reflects completed encounters; first-try correctness is measured independently. A hint must never prevent story progress. Level and expedition count persist. Cosmetic unlocks are deterministic rewards. No streak-loss pressure. Future skills offer meaningful utility: longer ward duration, bigger map reveal, alternate travel paths. A 30-minute session should finish with something discovered, something earned and a clear next destination.
+Build a 20–30 minute authored arc before infinite map streaming: Haven → river trail → pirate camp → guardian sanctuary, with optional discoveries and checkpoints every few minutes. Distinct enemies should telegraph distinct actions, not merely have different HP. A session should end with a new discovery, an earned improvement and an inviting next destination.
 
-Topic affinity equipment (future): e.g. Ember bow = percentages, Surveyor's mace = geometry, Tide cloak = fractions. Relic charge depletes slowly over several encounters, with ample warning and useful fallback tools. A loot scheduler favours under-practised topics and avoids repeating the last two affinities; players retain agency and can repair a favourite. Do not make a child fail a preferred fantasy because a topic is weak. Equipment never creates mandatory grinding or cash repair.
+Later topic equipment can steer practice: percentage fireball, geometry mace, fraction shield. Depleting relic charges and diverse drop scheduling should encourage variety while preserving a usable favourite and a free fallback. No streak loss, paid random rewards or compulsory grind. A small skill constellation should unlock different approaches rather than only increasing numbers.
 
-Enemies (future): territorial animals retreat rather than die; pirates use bows and melee; rune creatures embody maths patterns. Geometry guardian projects shapes; percentage wisp splits energy; ratio serpent divides a path. Visual telegraphs communicate both the threat and the topic without depending on colour alone.
+## Quality gate
 
-## Character
-
-First slice: name, skin tone, haircut, outfit palette in a real animated 3D explorer. Loot unlocks an additional outfit. Store choices in the save. Future: body presets, more hair meshes, wearable equipment, accessories and a short creator scene. Avoid gender-locking attributes.
-
-## Flow and learning measurement
-
-Validate, do not assume, that the loop is compelling. Observe voluntary continuation, frustration, hints, time spent navigating vs solving, and what a child can explain after play. No claim that engagement alone proves learning. Playtest targets: first interesting interaction within 60 seconds; question transition under 250 ms; reward response immediately after confirmation; safe quit at every completed encounter. Track active response time, not a hidden-tab clock. No speed leaderboard.
-
-## Controls and accessibility
-
-Desktop (confirmed user direction): Diablo-inspired isometric, mouse-first. Click ground to move; click a landmark or enemy to approach and interact/fight. WASD/arrows and E are secondary shortcuts; visible on-screen buttons; Escape closes safe menus. Questions use HTML, large readable text, labelled inputs, keyboard-accessible options, feedback text and focus management. Reduced motion stops camera flourishes / decorative animation. Sound optional and off by default. Thinking is untimed. Responsive HUD and touch directional buttons supplement laptop controls. Full screen-reader spatial navigation and configurable keybindings are later work and must be stated as limitations.
-
-## Acceptance gate
-
-A new player can customise, travel to each seal, solve at every difficulty, recover from mistakes, defeat the guardian, receive a cosmetic, reload without losing progress and inspect/export real results. Keyboard and pointer paths work. No placeholder buttons or invented dashboard statistics. Full graphical fidelity comparable to a commercial game requires sustained art and playtest iterations; the first slice establishes a coherent original art direction and a real game foundation.
+Verify menu/new/load, actual pointer navigation, all maths tiers, mistakes/hints, loot/equip, completed quest, next expedition, reload and parent export/import. Review visuals at laptop size and reduced motion. Validate voluntary continuation and comprehension with real family playtests; simulated gamer review is only a preliminary critique. Commercial reference quality, infinite terrain and a complete 11+ curriculum are not claimed by this build.

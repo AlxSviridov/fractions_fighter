@@ -1,25 +1,34 @@
 # Roadmap and release gates
 
-## 0 — Durable foundation + first playable (current)
+Owner corrections of 13 September 2026 supersede the original seal-puzzle scope. Exact completion evidence belongs in `memory/STATE.md` and the checkboxes in `memory/BACKLOG.md`.
 
-Git-backed instructions/memory, original visual identity, procedural jungle, character editor, exploration, five maths templates, three seal encounters + guardian, local save transfer and parent report. Deliver a tested browser build. No promise of an infinite commercial-scale RPG in one iteration.
-Gate: complete the whole loop in browser, validate maths/save/state, render QA, update handover, push code; Firebase only to a verified dedicated project.
+## Current: prove the rebuilt RPG loop
 
-## 1 — Child-pilot MVP
+New/load menus, six heroes and three classes, Haven village, five immediate enemies, action-tier maths, inventory/equipment, guaranteed loot, XP and quest progression are implemented. Complete browser QA, launcher verification, attack readability, save transfer and updated documentation before release. This does not establish owner acceptance or commercial visual quality.
 
-Three connected hand-shaped areas around a procedural backbone; camp → river crossing → pirate ruin → guardian; 20–30 minute authored arc. Add melee/bow traversal encounters, meaningful feedback animations, soundscape, topic equipment and a small inventory. Broaden learning coverage and long-division workspace. Tablet QA. Parent-owned cloud profiles and security tests if cross-device player saves are required for pilot.
-Gate: 3–5 family playtests; children can explain mechanics and stop safely; pacing evidence; performance budget met; no critical accessibility or maths errors. Turn observational feedback into issues, not unverifiable “addictive” claims.
+## Next: make actions and rewards worth returning for
 
-## 2 — Depth and replay
+1. Distinct sword/bow/magic impact, visible hit/defeat, a convincing guardian and clear reward reveal. Remove decorative enemies that look interactive but are not.
+2. A useful Haven forge/shop: spend earned gold on a visible equipment decision. Add equipment comparisons and meaningful tradeoffs, not endless inflation.
+3. Better hero identity: close-up 3D creation preview, editable hair/accessory/garment meshes, recognisable silhouettes matching the supplied portraits. Authored rigged models when procedural quality is insufficient.
+4. Encounter variety: animal retreat, pirate telegraphs, guardian phases and a maths-powered charge that supports several free actions. Preserve thinking time and substantial rewards per demanding task.
 
-Seeded chunk streaming, 2–3 biomes, enemy affinity variants, optional paths, deterministic quest graph. Relic wear and diverse loot scheduler; small skill constellation. Authored Blender character rig, reusable animations, wearable sockets, richer guardian. Parent trends and guided practice.
-Gate: reproducible generated worlds, no unreachable mandatory encounters, progression economy simulation, save compatibility.
+Each item is a separate tested and pushed increment. Do not make all depend on a huge rewrite.
 
-## 3 — Personalised learning
+## Child-pilot journey
 
-Reviewed curriculum graph, conservative adaptation, spaced retrieval, misconception feedback, regional practice packs. Explain recommendations, parent override. Co-op only after considering consent, moderation and privacy.
-Gate: learning evaluation that distinguishes skill improvement from question familiarity; confidence-aware metrics; security/accessibility audits.
+Three linked areas and an authored 20–30 minute arc: Haven → river trail → pirate ruins → guardian. Optional discoveries, topic-affinity effects, small skill constellation, clearer long-division working, soundscape and laptop performance evidence. Real family playtests should measure comprehension, frustration and voluntary continuation; simulated gamer reviews are not substitutes.
+
+Gate: children can understand the first minute, explain an example method, recover from mistakes and stop safely. Fix confusing or boring moments before adding map size.
+
+## Depth and replay
+
+Streamed deterministic world chunks, varied biomes, reachable quest graphs, sparse persistent changes, relic charge/wear and diverse loot scheduling. Authored Blender rigs and equipment sockets. Validate economy, reachability, save compatibility and runtime budgets.
+
+## Personalised learning and device sync
+
+Broaden reviewed 11+ templates and diagram support. Parent-owned cloud profiles, conflict-safe offline outbox, explicit export/deletion and emulator security tests precede cloud launch. Conservative topic-based adaptation with enough independent spaced evidence; parent override and explainable changes. No mastery inference from speed alone.
 
 ## Working method
 
-Take one vertical feature from design → domain logic → visuals → tests → browser QA → memory → commit/push. Keep the next 3 tasks concrete in BACKLOG. Capture architectural choices in ADRs. Prefer small shipped increments; never hide unfinished features behind clickable UI. Use GitHub issues for cross-session milestones once the initial checkpoint exists. Do not estimate commercial art scope as a one-session task.
+On-demand Terra/Sonnet workers for bounded routine work, frontier orchestration and difficult review. Independent maths review where correctness changes. Every piece: design → code → relevant tests/browser check → STATE/BACKLOG/session → commit and push. No feature is verified solely because a button exists.

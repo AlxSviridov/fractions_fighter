@@ -4,11 +4,11 @@ Updated: 2026-09-13. **Fractions Fighter rebuild checkpoint; not yet a verified 
 
 ## Latest checkpoint
 
-Owner revised model policy: on-demand subagents only, Terra/Sonnet routine workers, frontier orchestration, bite-size code+memory commits. See AGENTS.md and TEAM_WORKFLOW.md. Existing frontier workers are not being restarted.
+Resumed under the economical-agent policy. Terra (`gpt-5.6-terra`, medium) owns bounded release QA; a second Terra worker owns combat visuals while the orchestrator reviews/integrates. No full fleet.
 
-`npm run check` passed: 55 tests across 7 files, strict TypeScript and production build. Integrated transactional persistence, unique question IDs and fresh-profile defaults are present. Combat now clears the maths overlay before showing impact; loot compares total stats; calculation input receives focus. Updated end-to-end tests exist but have NOT run. The documentation-refresh and browser-test specialist continuations stopped with usage-limit errors.
+The requested `Launch Fractions Fighter.command` executed successfully: built the game, started `http://127.0.0.1:4175`, and opened its browser. Root verified actual character creation → Haven → wilds with five enemies in the in-app browser at 1280×720. Earlier usage-limit rejection no longer blocks this check. Full end-to-end suite is being run separately; no release claim yet.
 
-Automatic approval review rejected executing the local launcher because the account usage limit was reached (reported reset 4:38 PM). Launcher execution and Firebase release remain unverified. Do not bypass the rejection. Git status/push result is recorded in the latest session note.
+Updated README, game design, architecture, learning/art docs and roadmap to describe the actual RPG rebuild, superseding stale Verdant descriptions. Planned next visual increment: distinguish successful attacks and remove the misleading duplicate decorative guardian.
 
 ## Owner direction / acceptance
 
@@ -24,13 +24,13 @@ The owner rejected the old Verdant quiz expedition as an undercooked MVP. Thirte
 - Optional falling quick comparison minigame (< = >); medium and ritual calculation always untimed; hints / relaxed mode.
 - Persistent inventory, equippable weapon/armour/relic, rarity, stats, guaranteed enemy loot, XP, levels, gold, potions, quest rewards / next expedition.
 - Cinzel + Crimson Pro fonts bundled locally. Rebuilt dark/brass game HUD, health orb, inventory and loot interface.
-- Executable local launcher `Launch Fractions Fighter.command` builds and opens the local game (integration check pending).
+- Executable local launcher `Launch Fractions Fighter.command` builds and opens the local game (execution and browser entry verified).
 - Existing original maths/state tests retained; new specialist math/domain/review tests added.
 
 ## Validation / active fixes
 
 Combined app compiled successfully after integration. Setter: 12 tests pass; independent reviewer added prompt-derived arithmetic checks and found no arithmetic blockers. Percentage teaching feedback fixed to use halves/tenths/quarters. RPG domain: 8 tests pass. 3D specialist manually verified village gate and enemy target clicks in an isolated renderer preview.
-Full integrated browser/launcher/new-load/inventory/complete-quest checks are next. Existing pre-rebuild end-to-end tests must be updated for the new game flow.
+Launcher and browser entry checked. Rewritten full-expedition browser suite is under verification.
 
 Independent save review found a partial-write failure in create/import (active save written before archive success), archive wrapper validation weakness and potential question-ID reuse after attempt cap. Transactional persistence, strict wrapper validation, unique cast IDs and fresh profile defaults are now integrated and covered by passing tests. Full UI save/import checks still remain.
 
