@@ -2,13 +2,13 @@
 
 An isometric jungle adventure for ages 9–11 where maths powers strikes, spells and ancient rituals. Create a hero in Haven, explore the wilds, battle creatures and pirates, collect equipment and restore the Shattered Compass.
 
-**Status:** playable RPG rebuild under verification, not yet an owner-accepted MVP. [Current state](docs/memory/STATE.md) records exact checks, deployment and remaining work.
+**Status:** development build 0.3; not yet an owner-accepted MVP. [Current state](docs/memory/STATE.md) records exact checks, deployment and remaining work.
 
 ## Play from this folder
 
 On macOS, double-click **[Launch Fractions Fighter.command](Launch%20Fractions%20Fighter.command)**. It builds the game and opens your browser. Keep its Terminal window open while playing; Control-C stops the server. First use needs Node.js 22 LTS and an internet connection to install locked dependencies. Subsequent launches use local assets.
 
-Start with **New game**, choose your hero and calling, then enter Haven. Use **Continue adventure** or **Load game** to resume. Click the ground to move and a monster to approach. Inventory is available in the top navigation or with **I**; **J** opens quests. Simple strikes use quick comparisons; power skills and rituals allow unlimited thinking time. Settings can disable falling runes.
+Start with **New game**, choose your hero and calling, then enter Haven. Use **Continue adventure** or **Load game** to resume. Click the ground to move and a monster to approach. Inventory is available in the top navigation or with **I**; **J** opens quests. Watch nearby enemies for attack warnings: move away or answer a ward to block. Armour reduces missed-ward damage; Return to Haven restores health. Simple strikes use close comparisons; power skills and rituals allow unlimited thinking time. Settings can disable falling runes.
 
 ## Develop
 

@@ -80,8 +80,13 @@ export function validateSave(value: unknown): Save {
     value.hintedQuestions.some((q) => typeof q !== 'string' || q.length > 200)
   )
     throw new Error('Hint history is invalid.');
-  if (value.slotId !== undefined && (typeof value.slotId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(value.slotId))) throw new Error('Save slot is invalid.');
-  if (value.quickTimer !== undefined && typeof value.quickTimer !== 'boolean') throw new Error('Quick rune setting is invalid.');
+  if (
+    value.slotId !== undefined &&
+    (typeof value.slotId !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(value.slotId))
+  )
+    throw new Error('Save slot is invalid.');
+  if (value.quickTimer !== undefined && typeof value.quickTimer !== 'boolean')
+    throw new Error('Quick rune setting is invalid.');
   const rpg = value.rpg === undefined ? undefined : validateRpg(value.rpg);
   const s = value as unknown as Save;
   if (

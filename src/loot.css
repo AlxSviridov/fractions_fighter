@@ -1,0 +1,268 @@
+/* Inventory art and panels: scoped so the game HUD remains independent. */
+.ff-game .inventory-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 14px 0 22px;
+  padding: 1px;
+  border: 1px solid #b99a5a77;
+  background: #211e19;
+  box-shadow:
+    inset 0 0 0 3px #090b0a,
+    0 5px 14px #0005;
+}
+
+.ff-game .inventory-stats > span {
+  min-width: 0;
+  justify-content: center;
+  padding: 10px 7px;
+  color: #e0d4ae;
+  background: linear-gradient(145deg, #485044, #242d29 54%, #151b19);
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.ff-game .inventory-stats svg {
+  color: #d6af64;
+  flex: 0 0 auto;
+}
+
+.ff-game .inventory-layout {
+  grid-template-columns: minmax(180px, 0.72fr) minmax(0, 1.55fr);
+  align-items: start;
+  gap: clamp(18px, 3vw, 32px);
+}
+
+.ff-game .equipped-panel,
+.ff-game .pack-panel {
+  border: 1px solid #b4975f77;
+  background:
+    linear-gradient(90deg, #d9bc7830 1px, transparent 1px) 0 0 / 17px 17px,
+    linear-gradient(#d9bc781c 1px, transparent 1px) 0 0 / 17px 17px,
+    radial-gradient(circle at 50% 12%, #a8844430, transparent 36%),
+    linear-gradient(145deg, #38423b, #1b2521 58%, #121816);
+  box-shadow:
+    inset 0 0 0 3px #101412,
+    inset 0 0 18px #000a,
+    0 8px 18px #0004;
+}
+
+.ff-game .equipped-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 9px;
+}
+
+.ff-game .equipped-panel > img {
+  width: calc(100% - 20px);
+  height: 185px;
+  margin: 6px 10px 10px;
+  padding: 8px;
+  object-fit: contain;
+  border: 1px solid #c0a66b77;
+  background: radial-gradient(ellipse at 50% 20%, #d7c08235, #17211d 68%);
+  box-shadow:
+    inset 0 0 24px #000b,
+    0 4px 8px #0007;
+}
+
+.ff-game .equipped-panel h3,
+.ff-game .pack-panel h3 {
+  margin: 4px 4px 10px;
+  color: #ead7a3;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ff-game .equip-slot {
+  min-height: 58px;
+  margin: 3px 0;
+  padding: 6px 8px;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--rarity, #aeb799) 47%, #5e513a);
+  border-left: 3px solid var(--rarity, #aeb799);
+  background: linear-gradient(90deg, #121917e8, #344038d9);
+  box-shadow:
+    inset 0 1px #e4cc8e18,
+    inset 0 -5px 8px #0005;
+}
+
+.ff-game .equip-slot:hover:not(:disabled),
+.ff-game .equip-slot:focus-visible {
+  background: linear-gradient(90deg, #202c25, #475447);
+  outline-color: var(--rarity, #e6ce85);
+}
+
+.ff-game .equip-slot > .loot-art {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+}
+
+.ff-game .equip-slot small {
+  color: #bcae83;
+  font-size: 7px;
+}
+
+.ff-game .equip-slot strong {
+  overflow: hidden;
+  color: var(--rarity, #e0d6af);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-game .pack-panel {
+  padding: 12px;
+}
+
+.ff-game .pack-panel h3 {
+  margin: 1px 0 11px;
+}
+
+.ff-game .pack-panel h3 span {
+  color: #bdb486;
+  font-size: 12px;
+}
+
+.ff-game .pack-grid {
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  max-height: none;
+  overflow: visible;
+  gap: 7px;
+  padding: 2px;
+}
+
+.ff-game .pack-item {
+  min-width: 0;
+  min-height: 104px;
+  padding: 8px 5px 7px;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--rarity, #aeb799) 62%, #3a3429);
+  border-bottom-width: 3px;
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      color-mix(in srgb, var(--rarity) 18%, transparent),
+      transparent 52%
+    ),
+    linear-gradient(145deg, #3f473c, #18221e 62%, #111716);
+  box-shadow:
+    inset 0 1px #fff1,
+    inset 0 0 12px #0008,
+    0 2px 3px #0005;
+}
+
+.ff-game .pack-item:hover,
+.ff-game .pack-item.selected {
+  border-color: var(--rarity, #e2ce91);
+  background:
+    radial-gradient(
+      circle at 50% 30%,
+      color-mix(in srgb, var(--rarity) 34%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(145deg, #535d4b, #233127 62%, #111716);
+  outline: 1px solid color-mix(in srgb, var(--rarity) 72%, transparent);
+  outline-offset: 1px;
+}
+
+.ff-game .pack-item > .loot-art {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+}
+
+.loot-art {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 3px 2px #000b)
+    drop-shadow(0 0 5px color-mix(in srgb, currentColor 28%, transparent));
+}
+
+.loot-art__shadow {
+  transform-origin: 50px 50px;
+}
+
+.loot-art--legendary {
+  filter: drop-shadow(0 3px 2px #000b) drop-shadow(0 0 8px #efbd6199);
+}
+
+.ff-game .pack-item small {
+  width: 100%;
+  overflow: hidden;
+  color: #e4dcc0;
+  font-family: 'Crimson Pro', serif;
+  font-size: 11px;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-game .item-detail {
+  margin-top: 15px;
+  padding: 17px 19px;
+  border: 1px solid color-mix(in srgb, var(--rarity) 62%, #6b5836);
+  border-top-width: 3px;
+  background:
+    linear-gradient(110deg, #d2ba7740 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(145deg, #443b2d, #2d3025 58%, #17201d);
+  box-shadow:
+    inset 0 0 0 3px #17171299,
+    inset 0 0 20px #0007;
+}
+
+.ff-game .item-detail h3 {
+  color: var(--rarity, #ead8a8);
+  text-shadow: 0 2px 1px #000;
+}
+
+.ff-game .item-detail p {
+  color: #ddd0ab;
+}
+
+.ff-game .item-detail strong {
+  padding: 3px 7px;
+  border: 1px solid #d5b66a55;
+  color: #e7d18b;
+  background: #151d19a8;
+}
+
+@media (max-width: 720px) {
+  .ff-game .inventory-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ff-game .inventory-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ff-game .equipped-panel {
+    grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1.2fr);
+    column-gap: 10px;
+    align-items: center;
+  }
+
+  .ff-game .equipped-panel > img {
+    grid-row: 1 / 5;
+    width: calc(100% - 8px);
+    height: 160px;
+    margin: 4px;
+  }
+
+  .ff-game .equipped-panel h3,
+  .ff-game .equip-slot {
+    grid-column: 2;
+  }
+
+  .ff-game .pack-grid {
+    grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  }
+
+  .ff-game .pack-item {
+    min-height: 94px;
+  }
+}

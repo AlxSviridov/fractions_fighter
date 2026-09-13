@@ -30,6 +30,7 @@ import {
   WandSparkles,
   X,
 } from 'lucide-react';
+import { LootArt } from './components/LootArt';
 import { Modal } from './components/Modal';
 import { MathEncounter } from './components/MathEncounter';
 import type { WorldHandle } from './components/World';
@@ -55,15 +56,16 @@ import {
   usePotion,
 } from './game/rpg';
 import type { ClassId, CombatAction, Item, ItemSlot, RpgState, Zone } from './game/rpg';
+import { defencePreview, resolveDefence } from './game/defence';
 import { HEROES, portrait } from './game/heroes';
 import { makeActionQuestion } from './game/actionMath';
 import type { ActionQuestion, ActionTier } from './game/actionMath';
 const World = lazy(() => import('./components/World'));
 type Screen = 'menu' | 'create' | 'play';
-type Panel = 'load' | 'settings' | 'inventory' | 'quests' | 'parents' | 'help' | null;
+type Panel = 'recap' | 'load' | 'settings' | 'inventory' | 'quests' | 'parents' | 'help' | null;
 type Cast = {
   question: ActionQuestion;
-  action: CombatAction | 'heal';
+  action: CombatAction | 'heal' | 'defend';
   enemyId?: string;
   title: string;
 };
@@ -114,6 +116,8 @@ const classIcon = (id: ClassId, size = 24) =>
     <WandSparkles size={size} />
   );
 export default function App() {
+  const [threat, setThreat] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<ActionQuestion | null>(null);
   const [initial] = useState(loadSave),
     [save, setSave] = useState<Save>(() => ({
       ...initial.save,
@@ -147,6 +151,66 @@ export default function App() {
     enemy = rpg.enemies.find((e) => e.id === selectedEnemy && e.hp > 0),
     reports = topicReports(save.attempts);
   const paused = screen !== 'play' || !!panel || !!cast || blocked || resolving;
+  const threatContext = useRef({ paused, loot, position, readySeed });
+  threatContext.current = { paused, loot, position, readySeed };
+  useEffect(() => {
+    let elapsed = 0,
+      targetId: string | null = null;
+    const timer = setInterval(() => {
+      const context = threatContext.current,
+        current = currentSave.current,
+        campaign = current.rpg!;
+      if (
+        context.paused ||
+        context.loot ||
+        document.hidden ||
+        campaign.zone !== 'wilds' ||
+        context.readySeed !== current.seed
+      ) {
+        elapsed = 0;
+        targetId = null;
+        setThreat(null);
+        return;
+      }
+      const nearby = campaign.enemies
+        .filter(
+          (e) => e.hp > 0 && Math.hypot(e.x - context.position[0], e.z - context.position[1]) < 6,
+        )
+        .sort(
+          (a, b) =>
+            Math.hypot(a.x - context.position[0], a.z - context.position[1]) -
+            Math.hypot(b.x - context.position[0], b.z - context.position[1]),
+        )[0];
+      if (!nearby) {
+        elapsed = 0;
+        targetId = null;
+        setThreat(null);
+        return;
+      }
+      if (targetId !== nearby.id) {
+        targetId = nearby.id;
+        elapsed = 0;
+      }
+      elapsed += 250;
+      if (elapsed === 4500) {
+        setThreat(nearby.name);
+        world.current?.telegraphEnemy(nearby.id);
+      }
+      if (elapsed >= 8000) {
+        elapsed = 0;
+        setThreat(null);
+        setSelectedEnemy(nearby.id);
+        const key = `${current.slotId ?? 'legacy'}:defence:${crypto.randomUUID()}`;
+        setCast({
+          question: makeActionQuestion('quick', current.settings.difficulty, current.seed, key),
+          action: 'defend',
+          enemyId: nearby.id,
+          title: `${nearby.name} attacks · Raise your ward`,
+        });
+      }
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
   const notify = useCallback((message: string) => setToast(message), []),
     closePanel = useCallback(() => setPanel(null), []);
   const refreshHeroes = useCallback(() => {
@@ -183,6 +247,7 @@ export default function App() {
   }, [walkTarget, readySeed, save.seed, paused]);
   useEffect(() => {
     function key(e: KeyboardEvent) {
+      if (e.defaultPrevented) return;
       if (
         screen !== 'play' ||
         cast ||
@@ -235,6 +300,7 @@ export default function App() {
     setScreen('create');
   }
   function createHero() {
+    setLastQuestion(null);
     try {
       archiveHero(save);
       const next = {
@@ -258,6 +324,7 @@ export default function App() {
     }
   }
   function loadHero(next: Save) {
+    setLastQuestion(null);
     const migrated = { ...next, rpg: next.rpg ?? { ...freshRpg(), xp: next.xp } };
     setSave(migrated);
     setBlocked(false);
@@ -321,11 +388,13 @@ export default function App() {
     const s = currentSave.current,
       old = s.rpg!;
     const next =
-      cast.action === 'heal'
-        ? correct
-          ? usePotion(old)
-          : old
-        : attackEnemy(old, cast.enemyId!, cast.action, correct);
+      cast.action === 'defend'
+        ? resolveDefence(old, cast.enemyId!, correct ? 'blocked' : 'hit')
+        : cast.action === 'heal'
+          ? correct
+            ? usePotion(old)
+            : old
+          : attackEnemy(old, cast.enemyId!, cast.action, correct);
     const attempt = {
       questionId: cast.question.id,
       topic: cast.question.topic,
@@ -343,27 +412,39 @@ export default function App() {
       expedition: next.expedition,
       attempts: [...s.attempts, attempt].slice(-10000),
     });
+    if (cast.action === 'defend') {
+      setLastQuestion(cast.question);
+      setCast(null);
+      setThreat(null);
+      notify(correct ? 'Attack blocked! Your ward protected all your health.' : next.lastReward);
+      return;
+    }
     if (correct) {
+      setLastQuestion(cast.question);
       sound(s.settings.sound);
       const found = next.inventory.find((i) => !old.inventory.some((o) => o.id === i.id));
       // Persist rewards immediately; hold only the visual snapshot so the attack plays in the world.
       setVisualRpg(old);
       setResolving(true);
       const targetId = cast.enemyId;
+      const action = cast.action === 'heal' ? 'power' : cast.action;
       setTimeout(() => {
         setCast(null);
-        if (targetId) world.current?.attackEnemy(targetId);
+        if (targetId) world.current?.attackEnemy(targetId, action);
       }, 420);
-      setTimeout(() => {
-        setVisualRpg(null);
-        setResolving(false);
-        if (found) {
-          setLoot(found);
-          setSelectedItem(found.id);
-          world.current?.celebrateLoot();
-        }
-        notify(next.lastReward);
-      }, 1100);
+      setTimeout(
+        () => {
+          setVisualRpg(null);
+          setResolving(false);
+          if (found) {
+            setLoot(found);
+            setSelectedItem(found.id);
+            world.current?.celebrateLoot();
+          }
+          notify(next.lastReward);
+        },
+        s.settings.reducedMotion ? 700 : action === 'ritual' ? 1950 : 1350,
+      );
     }
     if (next.zone === 'village' && old.zone === 'wilds') {
       setCast(null);
@@ -636,7 +717,9 @@ export default function App() {
                   ? 'A fraction restored. A new trail awaits.'
                   : rpg.zone === 'village'
                     ? 'Mira needs a fighter. Take the east gate into the wilds.'
-                    : 'Reclaim the first compass fragment.'}
+                    : rpg.enemies.filter((e) => e.hp > 0).every((e) => e.kind === 'guardian')
+                      ? 'The trail is clear. Enter the guardian sanctuary.'
+                      : 'Follow the river trail past the pirate outpost. Reclaim the compass.'}
             </p>
             <div className="quest-progress">
               <i style={{ width: `${(quest.current / quest.target) * 100}%` }} />
@@ -684,9 +767,6 @@ export default function App() {
                   <MapIcon size={12} />
                   ON THE TRAIL
                 </span>
-                <button aria-label="Return to Haven" onClick={() => travel('village')}>
-                  <Home size={14} />
-                </button>
               </div>
               {rpg.enemies.map((e) => (
                 <button
@@ -769,7 +849,7 @@ export default function App() {
                 {loot.rarity.toUpperCase()} TREASURE FOUND
               </span>
               <div className="loot-main">
-                {itemIcon(loot.slot, 34)}
+                <LootArt item={loot} size={58} />
                 <div>
                   <h3>{loot.name}</h3>
                   <span>
@@ -809,7 +889,7 @@ export default function App() {
             <Leaf size={12} />
             {rpg.zone === 'village'
               ? 'Haven is safe. Your health and draughts are restored.'
-              : 'Click ground to move · Click a monster to fight'}
+              : `${position[0] > 7 ? 'River crossing' : position[1] < -4 ? 'Guardian sanctuary' : position[0] > 3 && position[1] < 1 ? 'Pirate outpost' : 'Emerald trail'} · Click ground to move · Click a monster to fight`}
           </div>
           <section className="ff-actionbar">
             <div
@@ -900,7 +980,7 @@ export default function App() {
       )}
       {screen !== 'play' && (
         <footer className="menu-footer">
-          <span>FRACTIONS FIGHTER · DEVELOPMENT BUILD 0.2</span>
+          <span>FRACTIONS FIGHTER · DEVELOPMENT BUILD 0.3</span>
           <button onClick={() => openPanel('help')}>How to play</button>
           <button
             aria-label={save.settings.sound ? 'Mute sound' : 'Enable sound'}
@@ -919,7 +999,7 @@ export default function App() {
           <strong>POWER UNLEASHED</strong>
         </div>
       )}
-      {toast && (
+      {toast && !panel && (
         <div className="toast ff-toast" role="status">
           <Sparkles size={16} />
           {toast}
@@ -1033,7 +1113,7 @@ export default function App() {
                     className={`equip-slot ${item ? 'rarity-' + item.rarity : ''}`}
                     onClick={() => item && setSelectedItem(item.id)}
                   >
-                    {itemIcon(slot, 19)}
+                    {item ? <LootArt item={item} size={38} /> : itemIcon(slot, 19)}
                     <span>
                       <small>{slot.toUpperCase()}</small>
                       <strong>{item?.name ?? 'Empty slot'}</strong>
@@ -1054,7 +1134,7 @@ export default function App() {
                     onClick={() => setSelectedItem(item.id)}
                     aria-label={`Inspect ${item.name}`}
                   >
-                    {itemIcon(item.slot, 25)}
+                    <LootArt item={item} size={48} />
                     <small>{item.name}</small>
                     {rpg.equipment[item.slot] === item.id && <Check size={12} />}
                   </button>
@@ -1185,7 +1265,7 @@ export default function App() {
           <label className="toggle-row">
             <span>
               <strong>Falling quick runes</strong>
-              <small>12 seconds for easy comparisons. Turn off for untimed play.</small>
+              <small>15–25 seconds, depending on difficulty. Turn off for untimed play.</small>
             </span>
             <input
               type="checkbox"
@@ -1340,9 +1420,21 @@ export default function App() {
             <div>
               <strong>Match your thinking to your power</strong>
               <p>
-                Quick strike: a simple falling &lt; = &gt; rune. Power skill: an untimed calculation
+                Quick strike: a close falling &lt; = &gt; rune. Power skill: an untimed calculation
                 for ×3 damage. Ancient ritual: a harder division for ×7 damage. Missed quick timers
-                cause no damage; hints and relaxed mode are available.
+                on your attacks cause no damage. Enemy wards show the health at risk; hints and
+                relaxed mode pause their timer.
+              </p>
+            </div>
+          </div>
+          <div className="howto-step">
+            <Shield />
+            <div>
+              <strong>Watch the enemy’s warning</strong>
+              <p>
+                Nearby enemies wind up before attacking. Move away or solve a ward rune to block.
+                Armour reduces a missed ward’s damage. Longer calculations and menus pause enemy
+                attacks. Return to Haven restores health.
               </p>
             </div>
           </div>
@@ -1362,17 +1454,74 @@ export default function App() {
           </button>
         </Modal>
       )}
+      {screen === 'play' && lastQuestion && !cast && !resolving && !panel && (
+        <button className="last-rune-button" onClick={() => openPanel('recap')}>
+          <BookOpen size={13} />
+          Review last rune
+        </button>
+      )}
+      {panel === 'recap' && lastQuestion && (
+        <Modal
+          title="The method behind the magic."
+          eyebrow="LAST COMPLETED RUNE"
+          onClose={closePanel}
+        >
+          <h3 className="math-prompt">{lastQuestion.prompt.replace(' ◇ ', ' ? ')}</h3>
+          <p>{lastQuestion.explanation}</p>
+          <button className="primary full" onClick={closePanel}>
+            Return to the adventure
+            <ArrowRight size={16} />
+          </button>
+        </Modal>
+      )}
+      {screen === 'play' && rpg.zone === 'wilds' && !cast && !panel && (
+        <button
+          className="haven-return"
+          aria-label="Return to Haven"
+          disabled={resolving}
+          onClick={() => travel('village')}
+        >
+          <Home size={16} />
+          <span>
+            Return to Haven<small>Safe village · restore health</small>
+          </span>
+          <ArrowRight size={15} />
+        </button>
+      )}
+      {threat && !cast && !panel && (
+        <div className="enemy-warning" role="status">
+          <Shield size={19} />
+          <strong>{threat} is preparing an attack!</strong>
+          <span>Move out of range or prepare to defend.</span>
+        </div>
+      )}
       {cast && (
         <MathEncounter
           key={cast.question.id}
           question={cast.question}
+          mistakeFeedback={
+            cast.action === 'heal'
+              ? 'The draught is safe. Try again — or use a hint.'
+              : rpg.lastReward
+          }
           title={cast.title}
+          defending={cast.action === 'defend'}
+          defenceInfo={cast.action === 'defend' ? defencePreview(rpg, cast.enemyId!) : undefined}
+          onTimeout={
+            cast.action === 'defend'
+              ? () => answerAction('Time expired', false, false, cast.question.timeLimitMs ?? 15000)
+              : undefined
+          }
           timed={save.quickTimer !== false && !save.settings.reducedMotion}
           alreadyHinted={save.hintedQuestions.includes(cast.question.id)}
           onHint={showHint}
           onAnswer={answerAction}
           onFinish={finishCast}
-          onClose={finishCast}
+          onClose={
+            cast.action === 'defend'
+              ? () => answerAction('Withdrew ward', false, false, 0)
+              : finishCast
+          }
         />
       )}
     </main>

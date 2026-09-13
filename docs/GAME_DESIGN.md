@@ -1,5 +1,7 @@
 # Fractions Fighter — The Shattered Compass
 
+> Superseding direction (13 September 2026): [Engine rework](ENGINE_REWORK.md) and [increment plan](ENGINE_PLAN.md). Descriptions below include the legacy implemented build; resource combat and new interaction rules are planned until verified in STATE.
+
 Current design: 13 September 2026. Supersedes the rejected Verdant seal-puzzle prototype. Owner feedback is canonical in `feedback/2026-09-13-owner-review.md`; implementation evidence is in `memory/STATE.md`.
 
 ## Promise and story
@@ -21,14 +23,14 @@ Original jungle fantasy for ages 9–11, laptop browser first. Melee, bows and r
 | Action                             | Mathematical cost                                    | Current consequence                                  |
 | ---------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
 | Move, inspect, equip, choose route | None                                                 | Free exploration and decisions                       |
-| Quick strike                       | Easy fraction/percentage comparison, choose < = >    | 1× attack; ordinary first enemies take a few strikes |
+| Quick strike                       | Close fraction/percentage comparison, choose < = >   | 1× attack; ordinary first enemies take a few strikes |
 | Power skill                        | Untimed multiplication, percentage or rectangle task | 3× attack; usually resolves an early enemy           |
 | Ancient ritual                     | Untimed larger exact division, optional working area | 7× attack; can resolve the first guardian            |
 | Healing draught                    | Untimed focus calculation                            | Substantial healing, consumes a draught              |
 
-The optional falling quick rune allows 12 seconds, then relaxes without damage. Let me think, hints and reduced motion remove time pressure. Power and ritual questions never use a reflex timer. Wrong combat answers incur a modest ward/health cost and allow retry; rescue returns a fallen hero to Haven without deleting loot or XP. The world does not attack while the child is thinking.
+The optional falling quick rune allows 25/20/15 seconds in Explorer/Adventurer/Pathfinder, then relaxes without damage for player attacks. A proactive enemy ward instead blocks on a correct answer or applies the displayed armour-mitigated damage on a wrong answer/expiry; its timer can also be paused with hints or Let me think. Let me think, hints and reduced motion remove time pressure. Power and ritual questions never use a reflex timer. Wrong combat answers incur a modest ward/health cost and allow retry; rescue returns a fallen hero to Haven without deleting loot or XP. Enemy attack scheduling pauses during questions, reward inspection, menus and hidden tabs.
 
-Current combat is protected maths-driven action selection. It is not yet a continuous dodge/melee action system. Next experiment: short free combat intervals with telegraphed threats and a maths charge that powers several moves. Do not add a task to every click or require ten long calculations for one enemy.
+Nearby enemies now telegraph after 4.5 seconds and initiate a ward at 8 seconds if the hero stays within range. Current combat is protected maths-driven action selection with these reactive defence events. It is not yet a continuous dodge/melee action system. Next experiment: short free combat intervals with telegraphed threats and a maths charge that powers several moves. Do not add a task to every click or require ten long calculations for one enemy.
 
 ## Reward and identity
 

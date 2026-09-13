@@ -21,3 +21,11 @@ Game name is Fractions Fighter, not Verdant. The owner rejected the first slice 
 ## Cost and checkpoint amendment, 2026-09-13
 
 Use subagents only when necessary. Routine workers should use Terra / Sonnet; Astra / Fable / Opus high should primarily orchestrate and handle hard decisions/reviews. Do not inherit frontier models for easy tasks. Deliver bite-size increments and commit all intended changes with updated progress documentation, then push to GitHub. Earlier fleet request describes available specialist roles, not mandatory concurrent agents.
+
+## Combat and equipment follow-up
+
+Owner requires Diablo-like inventory with loot art, close/nontrivial comparisons and harder untimed tasks, visible Return to Haven, proactive enemy attacks with timed defence, explicit armour mitigation, and more deliberate level design. Full comments: `docs/feedback/2026-09-13-combat-and-equipment-review.md`. Commercial-quality game feel remains an unmet acceptance goal.
+
+## Resource combat redesign, 13 September 2026
+
+Owner requests a close Diablo II UI/UX reference and step-by-step engine improvements. Ordinary melee spends stamina; bow spends arrows, with harder maths for fire/frost ammunition; spells spend mana, geometry recharges it, and powerful casts also require harder mixed-topic maths. Recharge/cast maths pauses the entire world. Only quick defence maths is timed. Require moving/attacking enemies, interactive altars/chests, villagers with RPG quest markers/dialogue, and spell-required quests. Full developed contract: ../ENGINE_REWORK.md; ordered delivery: ../ENGINE_PLAN.md. Document and commit the plan before starting implementation.

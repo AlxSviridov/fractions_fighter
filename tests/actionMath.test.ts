@@ -4,10 +4,22 @@ import type { ActionTier } from '../src/game/actionMath';
 import { DIFFICULTIES, TOPICS } from '../src/game/math';
 import type { Difficulty } from '../src/game/math';
 
+const QUICK_LIMITS: Record<Difficulty, { gap: number; time: number }> = {
+  explorer: { gap: 0.1, time: 25000 },
+  adventurer: { gap: 0.05, time: 20000 },
+  pathfinder: { gap: 0.025, time: 15000 },
+};
+const RITUAL_BOUNDS: Record<Difficulty, { divisor: [number, number]; quotient: [number, number] }> =
+  {
+    explorer: { divisor: [6, 12], quotient: [24, 42] },
+    adventurer: { divisor: [12, 24], quotient: [48, 84] },
+    pathfinder: { divisor: [18, 36], quotient: [75, 144] },
+  };
+
 describe('action-tier maths', () => {
   for (const difficulty of Object.keys(DIFFICULTIES) as Difficulty[]) {
     for (const tier of ['quick', 'focus', 'ritual'] as ActionTier[]) {
-      it(`${difficulty}/${tier}: 500 seeds satisfy independent arithmetic and action bounds`, () => {
+      it(`${difficulty}/${tier}: 500 seeds satisfy exact arithmetic and action bounds`, () => {
         const answers = new Set<string>();
         const topics = new Set<string>();
         for (let seed = 0; seed < 500; seed++) {
@@ -15,17 +27,18 @@ describe('action-tier maths', () => {
           const [a, b, c, d] = q.operands;
           let expected: string;
           if (tier === 'quick') {
-            // All denominators divide 100: independently compare integer hundredths.
-            expect(100 % b).toBe(0);
-            expect(100 % d).toBe(0);
-            const left = a * (100 / b);
-            const right = c * (100 / d);
+            const left = BigInt(a) * BigInt(d);
+            const right = BigInt(c) * BigInt(b);
             expected = left === right ? '=' : left > right ? '>' : '<';
-            expect(b).toBeLessThanOrEqual(10);
+            expect(Math.abs(a / b - c / d)).toBeLessThanOrEqual(QUICK_LIMITS[difficulty].gap);
+            expect(a).toBeGreaterThan(0);
             expect(a).toBeLessThan(b);
+            expect(c).toBeGreaterThan(0);
+            expect(c).toBeLessThan(d);
             expect(q.choices).toEqual(['<', '=', '>']);
-            expect(q.timeLimitMs).toBe(12000);
-            expect(q.prompt).toContain('◇');
+            expect(q.timeLimitMs).toBe(QUICK_LIMITS[difficulty].time);
+            expect(q.prompt).toMatch(/^\d+\/\d+ ◇ \d+(?:%|\/\d+)$/);
+            expect(q.prompt.includes('%') || b !== d).toBe(true);
             for (const choice of q.choices!)
               expect(isActionCorrect(q, choice)).toBe(choice === expected);
           } else {
@@ -33,22 +46,28 @@ describe('action-tier maths', () => {
             expect(q.choices).toBeUndefined();
             if (q.topic === 'division') {
               expected = String(a / b);
+              const bounds = RITUAL_BOUNDS[difficulty];
               expect(a % b).toBe(0);
-              expect(Number(expected)).toBeGreaterThanOrEqual(12);
+              expect(b).toBeGreaterThanOrEqual(bounds.divisor[0]);
+              expect(b).toBeLessThanOrEqual(bounds.divisor[1]);
+              expect(Number(expected)).toBeGreaterThanOrEqual(bounds.quotient[0]);
+              expect(Number(expected)).toBeLessThanOrEqual(bounds.quotient[1]);
               expect(tier).toBe('ritual');
             } else if (q.topic === 'multiplication') {
               expected = String(Array.from({ length: a }, () => b).reduce((sum, n) => sum + n, 0));
-              expect(a).toBeLessThanOrEqual(12);
-              expect(b).toBeLessThanOrEqual(12);
+              expect(a).toBeGreaterThanOrEqual(10);
+              expect(b).toBeGreaterThanOrEqual(10);
             } else if (q.topic === 'percentages') {
               const hundredths = BigInt(a) * BigInt(b);
               expect(hundredths % 100n).toBe(0n);
               expected = String(hundredths / 100n);
-              expect(b).toBeLessThanOrEqual(400);
+              expect(b).toBeGreaterThanOrEqual(120);
             } else {
               expect(q.topic).toBe('geometry');
               expected = String(c === 1 ? a * b : a + b + a + b);
               expect(q.unit).toBe(c === 1 ? 'cm²' : 'cm');
+              expect(a).toBeGreaterThanOrEqual(10);
+              expect(b).toBeGreaterThanOrEqual(7);
             }
           }
           expect(q.answer).toBe(expected);
@@ -70,37 +89,55 @@ describe('action-tier maths', () => {
     }
   }
 
+  it('balances quick signs and fraction/percentage representations', () => {
+    for (const difficulty of Object.keys(DIFFICULTIES) as Difficulty[]) {
+      const signs = new Set<string>();
+      const representations = new Set<string>();
+      for (let seed = 0; seed < 500; seed++) {
+        const q = makeActionQuestion('quick', difficulty, seed, 'balance');
+        signs.add(q.answer);
+        representations.add(q.prompt.includes('%') ? 'percentage' : 'fraction');
+      }
+      expect(signs).toEqual(new Set(['<', '=', '>']));
+      expect(representations).toEqual(new Set(['fraction', 'percentage']));
+    }
+  });
+
+  it('includes 16 × 22 among untimed adventurer focus calculations', () => {
+    const prompts = new Set<string>();
+    for (let seed = 0; seed < 500; seed++) {
+      const q = makeActionQuestion('focus', 'adventurer', seed, 'two-digit');
+      if (q.topic === 'multiplication') prompts.add(q.prompt);
+    }
+    expect(prompts).toContain('16 × 22 = ?');
+  });
+
   it('versioned identities distinguish action tiers, difficulty and encounter keys', () => {
     const q = makeActionQuestion('quick', 'explorer', 42, 'first');
-    expect(q.id).toMatch(/^action-v1:/);
+    expect(q.id).toMatch(/^action-v2:/);
     expect(q.id).not.toBe(makeActionQuestion('focus', 'explorer', 42, 'first').id);
     expect(q.id).not.toBe(makeActionQuestion('quick', 'adventurer', 42, 'first').id);
     expect(q.id).not.toBe(makeActionQuestion('quick', 'explorer', 42, 'second').id);
   });
 
-  it('teaches focus percentages using familiar fractions and whole-number steps', () => {
+  it('teaches focus percentages with exact whole-number routes', () => {
     const covered = new Set<number>();
     for (const difficulty of Object.keys(DIFFICULTIES) as Difficulty[]) {
-      for (let seed = 0; seed < 100; seed++) {
+      for (let seed = 0; seed < 500; seed++) {
         const q = makeActionQuestion('focus', difficulty, seed, 'teaching');
         if (q.topic !== 'percentages') continue;
         covered.add(q.operands[0]);
-        expect(q.explanation).not.toContain('1%');
         expect(q.explanation).not.toMatch(/\d+\.\d+/);
-        expect(q.explanation).toMatch(/one (tenth|quarter|half)/);
-        expect(q.hint).toMatch(/(tenth|quarter|half)/);
         expect(q.explanation.endsWith(`= ${q.answer}.`)).toBe(true);
-        if (difficulty === 'explorer') expect(q.explanation.match(/÷/g)).toHaveLength(1);
       }
     }
-    expect(covered).toEqual(new Set([10, 20, 25, 50, 75]));
+    expect(covered).toEqual(new Set([10, 15, 20, 25, 35, 40, 50, 75]));
   });
 
   it('rejects malformed numerical input without loose parsing', () => {
     const q = makeActionQuestion('ritual', 'pathfinder', 12, 'input');
-    for (const value of ['', `${q.answer}cats`, `${q.answer}e0`, 'Infinity', 'NaN']) {
+    for (const value of ['', `${q.answer}cats`, `${q.answer}e0`, 'Infinity', 'NaN'])
       expect(isActionCorrect(q, value)).toBe(false);
-    }
     expect(isActionCorrect(q, `${q.answer}.0`)).toBe(true);
   });
 });

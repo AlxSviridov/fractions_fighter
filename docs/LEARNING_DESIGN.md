@@ -1,5 +1,7 @@
 # Maths and evidence design
 
+> Superseding direction (13 September 2026): [Engine rework](ENGINE_REWORK.md) and [increment plan](ENGINE_PLAN.md). Descriptions below include the legacy implemented build; resource combat and new interaction rules are planned until verified in STATE.
+
 ## Coverage
 
 11+ formats vary by local area and school. This game supports maths practice; it is not a complete exam course or a predicted admission score. Use original questions, not copied commercial test questions. Initial broad reference: GL Assessment's own familiarisation guidance, https://11plus.gl-assessment.co.uk/ (checked 2026-09-12). Confirm the intended school's format before claiming coverage.
@@ -14,7 +16,7 @@ Generate questions from correct mathematical constructions; don't generate arbit
 
 ## Feedback
 
-Wrong answers are informative, not humiliating. Encourage retry; show a worked route on request; permit leaving focus safely. Corrected completion earns the adventure reward. Learning evidence keeps first try, later tries and hints distinct so retrying cannot inflate mastery. Only easy comparisons offer a falling 12-second rune, switchable off. Expiry relaxes the question without damage; larger calculations are always untimed. Response time is contextual and paused when hidden; never penalise disability or careful reasoning. First-try accuracy excludes a solution shown before answer as independent success.
+Wrong answers are informative, not humiliating. Encourage retry; show a worked route on request; permit leaving focus safely. Corrected completion earns the adventure reward. Learning evidence keeps first try, later tries and hints distinct so retrying cannot inflate mastery. Only close comparisons offer an optional falling rune (25/20/15 seconds by difficulty). Player attack expiry relaxes without damage; an enemy defence expiry applies the displayed armour-mitigated damage. Hints and Let me think suspend that timer; larger calculations are always untimed. Response time is contextual and paused when hidden; never penalise disability or careful reasoning. First-try accuracy excludes a solution shown before answer as independent success.
 
 ## Parent report
 

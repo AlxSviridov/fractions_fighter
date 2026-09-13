@@ -1,5 +1,7 @@
 # Architecture
 
+> Superseding direction (13 September 2026): [Engine rework](ENGINE_REWORK.md) and [increment plan](ENGINE_PLAN.md). Descriptions below include the legacy implemented build; resource combat and new interaction rules are planned until verified in STATE.
+
 ## Stack and rationale
 
 - TypeScript + Vite: static browser build, strict contracts and short feedback loop; no server rendering needed for a game.

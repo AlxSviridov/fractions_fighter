@@ -5,6 +5,10 @@ import { isActionCorrect } from '../game/actionMath';
 import { Modal } from './Modal';
 type Props = {
   question: ActionQuestion;
+  mistakeFeedback?: string;
+  defending?: boolean;
+  defenceInfo?: { incoming: number; armour: number; damage: number };
+  onTimeout?: () => void;
   title: string;
   timed: boolean;
   alreadyHinted: boolean;
@@ -24,6 +28,8 @@ export function MathEncounter(p: Props) {
     input = useRef<HTMLInputElement>(null),
     onFinish = useRef(p.onFinish);
   onFinish.current = p.onFinish;
+  const onTimeout = useRef(p.onTimeout);
+  onTimeout.current = p.onTimeout;
   const quick = p.question.tier === 'quick';
   const duration = p.question.timeLimitMs ?? 12000;
   useEffect(() => {
@@ -37,6 +43,11 @@ export function MathEncounter(p: Props) {
         const left = Math.max(0, 1 - time.current.active / duration);
         setRemaining(left);
         if (left === 0) {
+          if (onTimeout.current) {
+            lock.current = true;
+            onTimeout.current();
+            return;
+          }
           setResult('missed');
           setRelaxed(true);
         }
@@ -53,7 +64,7 @@ export function MathEncounter(p: Props) {
   function submit(value: string) {
     if (lock.current || !value.trim()) return;
     const correct = isActionCorrect(p.question, value);
-    lock.current = correct;
+    lock.current = correct || !!p.defending;
     setResult(correct ? 'correct' : 'wrong');
     p.onAnswer(
       value,
@@ -74,17 +85,34 @@ export function MathEncounter(p: Props) {
   }
   const content = (
     <>
+      {p.defending && p.defenceInfo && (
+        <div className="defence-breakdown">
+          <Shield size={18} />
+          <strong>Correct rune: block the attack</strong>
+          <span>
+            Attack {p.defenceInfo.incoming} · Armour absorbs {p.defenceInfo.armour} ·{' '}
+            {p.defenceInfo.damage} health at risk
+            {p.defenceInfo.incoming - p.defenceInfo.armour > p.defenceInfo.damage
+              ? ' (ward limits the impact)'
+              : ''}
+          </span>
+        </div>
+      )}
       <div className="rune-meta">
         <span>
           {quick
-            ? 'QUICK RUNE · BASIC STRIKE'
+            ? p.defending
+              ? 'INCOMING ATTACK · DEFEND'
+              : 'QUICK RUNE · BASIC STRIKE'
             : p.question.tier === 'ritual'
               ? 'ANCIENT RITUAL · ×7 DAMAGE'
               : 'FOCUS SKILL · ×3 POWER'}
         </span>
         <span>
           <Shield size={12} />
-          {quick && !relaxed && p.timed && !hint ? '12-second rune' : 'Take your time'}
+          {quick && !relaxed && p.timed && !hint
+            ? `${duration / 1000}-second rune`
+            : 'Take your time'}
         </span>
       </div>
       {result === 'correct' ? (
@@ -170,7 +198,7 @@ export function MathEncounter(p: Props) {
           )}
           {result === 'wrong' && (
             <p className="rune-feedback" role="status">
-              Your ward caught the blow. Try again — or use a hint.
+              {p.mistakeFeedback || 'Your ward caught the blow. Try again — or use a hint.'}
             </p>
           )}
           {result === 'missed' && (

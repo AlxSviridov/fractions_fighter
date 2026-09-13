@@ -198,7 +198,7 @@ export function buildExplorer(profile: ExplorerAppearance) {
   const weaponRarity = profile.inventory?.find(
     (item) => item.id === profile.equipment?.weapon,
   )?.rarity;
-  const metal = rarity === 'rare' ? '#82beca' : rarity === 'epic' ? '#b19add' : '#b7b19a';
+  const metal = rarity === 'rare' ? '#82beca' : rarity === 'legendary' ? '#b19add' : '#b7b19a';
   const gold = '#cda75d';
   const leftLeg = new THREE.Group(),
     rightLeg = new THREE.Group();
@@ -359,7 +359,7 @@ export function buildExplorer(profile: ExplorerAppearance) {
       0,
     );
     fork.rotation.z = -0.8;
-    crystal(weapon, weaponRarity === 'epic' ? '#c6a0ee' : '#82ded1', 0, 1.16, 0, 0.18);
+    crystal(weapon, weaponRarity === 'legendary' ? '#c6a0ee' : '#82ded1', 0, 1.16, 0, 0.18);
   } else if (ranger) {
     const bow = mesh(
       weapon,
@@ -379,7 +379,7 @@ export function buildExplorer(profile: ExplorerAppearance) {
     box(weapon, gold, 0, 0.26, 0, 0.4, 0.055, 0.1);
     const blade = cylinder(
       weapon,
-      weaponRarity === 'rare' ? '#9fdad4' : weaponRarity === 'epic' ? '#bea1e3' : metal,
+      weaponRarity === 'rare' ? '#9fdad4' : weaponRarity === 'legendary' ? '#bea1e3' : metal,
       0,
       0.67,
       0,
@@ -435,6 +435,7 @@ export class JungleWorld {
   private pendingEnemy: string | null = null;
   private pendingZone = false;
   private attackStarted = -100;
+  private attackAction: 'strike' | 'power' | 'ritual' = 'strike';
   private impacts: THREE.Group[] = [];
   private frame = 0;
   private last = 0;
@@ -505,6 +506,7 @@ export class JungleWorld {
     this.buildTerrain(save.seed);
     this.buildTemple();
     this.buildCamp();
+    this.buildWildsLandmarks();
     this.batchStaticMeshes();
     this.buildLandmarks();
     this.buildGuardian();
@@ -748,6 +750,164 @@ export class JungleWorld {
     }
     this.toucan(-6.5, 1.5, 3.9);
     this.toucan(4.5, 0.4, 5.3);
+  }
+  /**
+   * Fixed landmarks give the compact wilds a readable expedition shape. They
+   * deliberately contain no creatures: the RPG snapshot remains the only
+   * source of enemy silhouettes and interaction targets.
+   */
+  private buildWildsLandmarks() {
+    this.buildRiverTrail();
+    this.buildPirateOutpost();
+    this.buildGuardianSanctuary();
+  }
+  private buildRiverTrail() {
+    const g = new THREE.Group();
+    this.scene.add(g);
+    // A stone-and-rope crossing points from the central trail to the river,
+    // then continues north as a deliberately different turquoise route.
+    for (let i = 0; i < 9; i++) {
+      const x = 7.4 + i * 0.52;
+      const plank = box(g, i % 2 ? '#806846' : '#987a4e', x, 0.24, 4.75, 0.46, 0.13, 2.65);
+      plank.rotation.y = ((i % 3) - 1) * 0.035;
+    }
+    for (const z of [3.55, 5.95]) {
+      for (const x of [7.25, 11.78]) {
+        cylinder(g, '#66553a', x, 0.78, z, 0.1, 0.13, 1.55, 6);
+        const lantern = crystal(g, '#8ee5cf', x, 1.47, z, 0.11);
+        lantern.rotation.z = Math.PI / 4;
+      }
+    }
+    for (const side of [-1, 1]) {
+      const rope = mesh(
+        g,
+        geometry('river-rope', () => new THREE.TorusGeometry(2.1, 0.027, 5, 16, Math.PI)),
+        '#b59a66',
+        9.5,
+        1.12,
+        4.75 + side * 1.12,
+      );
+      rope.rotation.z = Math.PI / 2;
+      rope.rotation.y = (side * Math.PI) / 2;
+    }
+    for (let i = 0; i < 6; i++) {
+      const marker = cylinder(
+        g,
+        '#697e60',
+        8.4 + Math.sin(i * 0.9) * 0.65,
+        0.16,
+        -1.5 - i * 1.28,
+        0.32,
+        0.44,
+        0.25,
+        6,
+      );
+      marker.rotation.y = i * 0.5;
+      crystal(g, i % 2 ? '#65c6b0' : '#a9df9b', marker.position.x, 0.48, marker.position.z, 0.1);
+    }
+    // A non-interactive discovery beacon makes the far bank worth crossing
+    // without creating a second landmark or competing with the RPG targets.
+    cylinder(g, '#6f8268', 12.08, 0.55, 4.72, 0.34, 0.47, 1.02, 6);
+    crystal(g, '#74dfc2', 12.08, 1.38, 4.72, 0.26);
+    ring(g, '#8ee5cf', 0.72, 12.08, 4.72);
+    const beacon = new THREE.PointLight('#76e3c4', 1.5, 3.2);
+    beacon.position.set(12.08, 1.3, 4.72);
+    g.add(beacon);
+  }
+  private buildPirateOutpost() {
+    const g = new THREE.Group();
+    g.position.set(7.4, 0, -2.25);
+    this.scene.add(g);
+    // The lookout is placed behind the Corsair encounter at (4, -2), leaving
+    // its approach and hit target clean while giving that fight a clear story.
+    box(g, '#735337', 0.25, 0.17, 0.05, 4.8, 0.16, 3.55);
+    for (const [x, z, s] of [
+      [-1.65, -1.18, 0.8],
+      [1.55, -1.04, 0.68],
+      [1.36, 1.1, 0.78],
+    ]) {
+      const crate = box(g, '#815b36', x, 0.48 * s, z, s, 0.96 * s, s);
+      box(g, '#b18a50', x, 0.48 * s, z + s * 0.51, s * 1.06, s * 0.09, s * 0.08);
+      crate.rotation.y = (x + z) * 0.16;
+    }
+    cylinder(g, '#5b4632', -0.82, 1.7, 0.45, 0.11, 0.15, 3.4, 7);
+    const sail = mesh(
+      g,
+      geometry('corsair-sail', () => new THREE.PlaneGeometry(1.85, 1.4)),
+      '#6d3840',
+      -0.14,
+      2.15,
+      0.45,
+    );
+    sail.rotation.y = -0.18;
+    sail.rotation.z = -0.08;
+    box(g, '#d0ad63', -0.12, 2.68, 0.49, 1.5, 0.08, 0.04);
+    const skull = ring(g, '#d7c58d', 0.21, -0.16, 0.44);
+    skull.position.y = 2.16;
+    for (const side of [-1, 1]) {
+      const watch = cylinder(g, '#68513a', side * 2.02, 1.02, 0.92, 0.14, 0.18, 2.04, 6);
+      crystal(g, '#f0b66a', side * 2.02, 2.08, 0.92, 0.1);
+      watch.rotation.z = side * 0.04;
+    }
+    const brazier = cylinder(g, '#55493c', 1.72, 0.52, -1.37, 0.44, 0.32, 0.72, 7);
+    crystal(g, '#ed9b48', 1.72, 1.05, -1.37, 0.2);
+    brazier.rotation.y = 0.2;
+  }
+  private buildGuardianSanctuary() {
+    const g = new THREE.Group();
+    g.position.set(0, 0, -6.25);
+    this.scene.add(g);
+    // This is architecture around the actual RPG boss position, never a
+    // second decorative guardian. Open sides preserve the combat silhouette.
+    for (let i = 0; i < 4; i++)
+      cylinder(
+        g,
+        i % 2 ? '#77866b' : '#8f9371',
+        0,
+        0.08 + i * 0.09,
+        0,
+        3.35 - i * 0.5,
+        3.35 - i * 0.5,
+        0.11,
+        8,
+      );
+    for (const x of [-2.45, 2.45]) {
+      cylinder(g, '#78836b', x, 1.25, -0.45, 0.3, 0.43, 2.35, 6);
+      cylinder(g, '#aaa77f', x, 2.48, -0.45, 0.46, 0.35, 0.22, 6);
+      crystal(g, '#72d9b7', x, 2.93, -0.45, 0.22);
+    }
+    for (const x of [-1.45, 1.45]) {
+      const rune = box(g, '#496c58', x, 0.22, 1.55, 0.56, 0.14, 0.76);
+      rune.rotation.y = x * 0.22;
+      crystal(g, '#a3efd0', x, 0.42, 1.58, 0.12);
+    }
+    for (let i = 0; i < 5; i++) {
+      const step = box(
+        g,
+        '#9a9776',
+        0,
+        0.13 + i * 0.06,
+        2.58 + i * 0.28,
+        3.45 - i * 0.42,
+        0.12,
+        0.62,
+      );
+      step.rotation.y = (i - 2) * 0.018;
+    }
+    const seal = ring(g, '#76dcb9', 1.72, 0, 0);
+    seal.position.y = 0.18;
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      const glyph = crystal(
+        g,
+        i % 2 ? '#88dcbf' : '#d6c977',
+        Math.cos(a) * 1.66,
+        0.35,
+        Math.sin(a) * 1.66,
+        0.11,
+      );
+      glyph.rotation.z = a;
+    }
   }
   private tree(x: number, z: number, s: number, rng: () => number) {
     const g = new THREE.Group();
@@ -1195,6 +1355,21 @@ export class JungleWorld {
       pirate.scale.setScalar(0.98);
       g.add(pirate);
       cylinder(g, '#963f37', 0, 2.06, 0, 0.41, 0.41, 0.13, 8);
+    } else if (enemy.kind === 'guardian') {
+      // The RPG guardian is deliberately a full boss silhouette, rather than a
+      // small version of the old decorative landmark.
+      rock(g, '#455f55', 0, 1.18, 0, 1.05);
+      box(g, '#526c5d', 0, 2.25, 0, 1.5, 1.35, 0.86);
+      rock(g, '#72896e', 0, 3.35, 0.06, 0.9);
+      for (const side of [-1, 1]) {
+        box(g, '#4b6256', side * 1.05, 2.15, 0, 0.45, 1.5, 0.58);
+        rock(g, '#536f5e', side * 1.07, 0.62, 0, 0.45);
+        const horn = crystal(g, '#8ff0bc', side * 0.48, 4.23, 0, 0.4);
+        horn.rotation.z = side * -0.42;
+      }
+      for (const x of [-0.28, 0.28]) orb(g, '#c5ffcf', x, 3.42, 0.73, 0.1, 0.075, 0.035, true);
+      crystal(g, '#79e4bc', 0, 2.25, 0.5, 0.29);
+      ring(g, '#8bd8a5', 1.22, 0, 0);
     } else {
       orb(g, '#586c64', 0, 0.7, 0, 0.53, 0.63, 0.4);
       orb(g, '#88aa83', 0, 1.37, 0, 0.41, 0.35, 0.35);
@@ -1204,7 +1379,7 @@ export class JungleWorld {
     }
     ring(g, '#c26947', 0.8, 0, 0);
     const bar = new THREE.Group();
-    bar.position.y = 2.6;
+    bar.position.y = enemy.kind === 'guardian' ? 4.85 : 2.6;
     bar.name = 'health';
     bar.quaternion.copy(this.camera.quaternion);
     g.add(bar);
@@ -1218,6 +1393,7 @@ export class JungleWorld {
   updateRpg(snapshot: RpgWorldSnapshot) {
     const changedZone = this.rpg?.zone !== snapshot.zone;
     this.rpg = snapshot;
+    this.guardian.visible = false;
     this.wildsScene.visible = snapshot.zone === 'wilds';
     this.villageScene.visible = snapshot.zone === 'village';
     if (changedZone) {
@@ -1258,8 +1434,6 @@ export class JungleWorld {
     for (const enemy of snapshot.enemies) {
       if (enemy.hp <= 0) continue;
       const g = this.enemyMeshes.get(enemy.id) ?? this.buildEnemy(enemy);
-      const previous = g.userData.hp as number | undefined;
-      if (previous !== undefined && enemy.hp < previous) this.attackEnemy(enemy.id);
       g.userData.hp = enemy.hp;
       g.position.set(enemy.x, 0, enemy.z);
       const fill = g.getObjectByName('fill');
@@ -1277,15 +1451,43 @@ export class JungleWorld {
     this.pendingEnemy = id;
     this.target = new THREE.Vector3(enemy.x, 0, enemy.z + 1.35);
   }
-  attackEnemy(id: string) {
+  attackEnemy(id: string, action: 'strike' | 'power' | 'ritual' = 'strike') {
     const enemy = this.rpg?.enemies.find((e) => e.id === id);
     if (!enemy) return;
     this.attackStarted = this.elapsed;
+    this.attackAction = action;
     this.player.rotation.y = Math.atan2(
       enemy.x - this.player.position.x,
       enemy.z - this.player.position.z,
     );
-    this.impact(enemy.x, enemy.z, '#f0d79b', false);
+    if (this.motion) return;
+    const from = this.player.position.clone();
+    if (action === 'strike') this.strikeEffect(from, enemy);
+    else if (action === 'power') this.powerEffect(from, enemy);
+    else this.ritualEffect(enemy);
+  }
+  telegraphEnemy(id: string) {
+    const enemy = this.rpg?.enemies.find((candidate) => candidate.id === id && candidate.hp > 0);
+    if (!enemy || this.motion || !this.enemyMeshes.get(id)?.visible) return;
+    const g = new THREE.Group();
+    g.position.set(enemy.x, 0.08, enemy.z);
+    g.userData = { start: this.elapsed, effect: 'telegraph' };
+    const warning = ring(g, '#e86658', 1.08, 0, 0);
+    warning.userData.warning = true;
+    for (let i = 0; i < 3; i++) {
+      const angle = i * ((Math.PI * 2) / 3);
+      const shard = crystal(
+        g,
+        '#ffb16f',
+        Math.cos(angle) * 0.86,
+        0.2,
+        Math.sin(angle) * 0.86,
+        0.13,
+      );
+      shard.userData.angle = angle;
+    }
+    this.scene.add(g);
+    this.impacts.push(g);
   }
   celebrateLoot(x = this.player.position.x, z = this.player.position.z) {
     this.impact(x, z, '#e2bf66', true);
@@ -1298,6 +1500,83 @@ export class JungleWorld {
     for (let i = 0; i < (loot ? 12 : 7); i++) {
       const m = crystal(g, color, 0, 0, 0, loot ? 0.1 : 0.07);
       m.userData.angle = i * 2.4;
+    }
+    this.scene.add(g);
+    this.impacts.push(g);
+  }
+  private strikeEffect(from: THREE.Vector3, enemy: RpgWorldSnapshot['enemies'][number]) {
+    const ranger = this.rpg?.classId === 'ranger';
+    const g = new THREE.Group();
+    g.userData = {
+      start: this.elapsed,
+      effect: ranger ? 'arrow' : 'swing',
+      from: from.clone().add(new THREE.Vector3(0, ranger ? 1.12 : 0, 0)),
+      target: new THREE.Vector3(enemy.x, 0.92, enemy.z),
+    };
+    if (ranger) {
+      const shaft = cylinder(g, '#f2d69a', 0, 0, 0, 0.025, 0.025, 0.82, 5);
+      shaft.rotation.x = Math.PI / 2;
+      const head = crystal(g, '#d8fff0', 0, 0, 0.45, 0.09);
+      head.rotation.x = Math.PI / 2;
+      g.position.copy(g.userData.from);
+      g.lookAt(enemy.x, 0.92, enemy.z);
+    } else {
+      const arc = mesh(
+        g,
+        geometry('strike-arc', () => new THREE.TorusGeometry(0.95, 0.065, 4, 18, Math.PI * 0.9)),
+        '#f5d78d',
+        0,
+        1.15,
+        0,
+        true,
+      );
+      arc.rotation.y = Math.PI / 2;
+      g.position.copy(from);
+      g.rotation.y = this.player.rotation.y;
+    }
+    this.scene.add(g);
+    this.impacts.push(g);
+  }
+  private powerEffect(from: THREE.Vector3, enemy: RpgWorldSnapshot['enemies'][number]) {
+    const g = new THREE.Group();
+    g.userData = {
+      start: this.elapsed,
+      effect: 'power',
+      from: from.clone().add(new THREE.Vector3(0, 1.15, 0)),
+      target: new THREE.Vector3(enemy.x, 1.15, enemy.z),
+    };
+    const core = orb(g, '#70edda', 0, 0, 0, 0.22, 0.22, 0.22, true);
+    core.userData.core = true;
+    for (let i = 0; i < 6; i++) {
+      const shard = crystal(g, i % 2 ? '#b5fff0' : '#5ec8ee', 0, 0, 0, 0.11);
+      shard.userData.angle = i * ((Math.PI * 2) / 6);
+    }
+    g.position.copy(g.userData.from);
+    this.scene.add(g);
+    this.impacts.push(g);
+  }
+  private ritualEffect(enemy: RpgWorldSnapshot['enemies'][number]) {
+    const g = new THREE.Group();
+    g.position.set(enemy.x, 0.08, enemy.z);
+    g.userData = { start: this.elapsed, effect: 'ritual' };
+    const outer = ring(g, '#c791ff', 1.65, 0, 0);
+    outer.userData.outer = true;
+    const inner = ring(g, '#76f2cf', 0.88, 0, 0);
+    inner.userData.inner = true;
+    const pillar = cylinder(g, '#9b78d0', 0, 1.5, 0, 0.24, 0.38, 2.9, 6);
+    pillar.material = mat('#9b78d0', 1, true);
+    pillar.userData.pillar = true;
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4;
+      const rune = crystal(
+        g,
+        i % 2 ? '#e6bdff' : '#8dffd1',
+        Math.cos(a) * 1.25,
+        0.25,
+        Math.sin(a) * 1.25,
+        0.15,
+      );
+      rune.userData.angle = a;
     }
     this.scene.add(g);
     this.impacts.push(g);
@@ -1350,7 +1629,9 @@ export class JungleWorld {
         : relic.userData.originalMaterial;
       relic.userData.complete = completed;
     }
-    this.guardian.visible = !save.won;
+    // RPG combat supplies the actual guardian. Keep this landmark only for a
+    // legacy non-RPG expedition so two bosses never occupy the same clearing.
+    this.guardian.visible = !this.rpg && !save.won;
     this.guardian.scale.setScalar(1 - save.guardianStage * 0.05);
     const position = this.player.position.clone(),
       rotation = this.player.rotation.clone();
@@ -1432,6 +1713,36 @@ export class JungleWorld {
     this.keys.clear();
     this.target = null;
   };
+  /** Keep the compact wilderness bounded while admitting the authored river route. */
+  private clampWildsPosition(point: THREE.Vector3) {
+    point.x = THREE.MathUtils.clamp(point.x, -9, 12.7);
+    point.z = THREE.MathUtils.clamp(point.z, -7.4, 11);
+    if (point.x <= 8) return point;
+    const bridge = { minX: 8, maxX: 12.3, minZ: 3.25, maxZ: 6.25 };
+    const bank = { minX: 10.55, maxX: 12.7, minZ: 1.7, maxZ: 7.6 };
+    const inside = (area: typeof bridge) =>
+      point.x >= area.minX && point.x <= area.maxX && point.z >= area.minZ && point.z <= area.maxZ;
+    if (inside(bridge) || inside(bank)) return point;
+    const options = [
+      new THREE.Vector2(8, point.z),
+      new THREE.Vector2(
+        THREE.MathUtils.clamp(point.x, bridge.minX, bridge.maxX),
+        THREE.MathUtils.clamp(point.z, bridge.minZ, bridge.maxZ),
+      ),
+      new THREE.Vector2(
+        THREE.MathUtils.clamp(point.x, bank.minX, bank.maxX),
+        THREE.MathUtils.clamp(point.z, bank.minZ, bank.maxZ),
+      ),
+    ];
+    const closest = options.reduce((best, candidate) =>
+      candidate.distanceToSquared(new THREE.Vector2(point.x, point.z)) <
+      best.distanceToSquared(new THREE.Vector2(point.x, point.z))
+        ? candidate
+        : best,
+    );
+    point.set(closest.x, point.y, closest.y);
+    return point;
+  }
   private pointer = (e: PointerEvent) => {
     if (this.paused) return;
     this.renderer.domElement.focus({ preventScroll: true });
@@ -1487,12 +1798,10 @@ export class JungleWorld {
     this.pendingInteraction = null;
     const point = new THREE.Vector3();
     if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point)) {
-      point.x = THREE.MathUtils.clamp(point.x, -9, 8);
-      point.z = THREE.MathUtils.clamp(
-        point.z,
-        this.rpg?.zone === 'village' ? -6 : -7.4,
-        this.rpg?.zone === 'village' ? 8 : 11,
-      );
+      if (this.rpg?.zone === 'village') {
+        point.x = THREE.MathUtils.clamp(point.x, -9, 8);
+        point.z = THREE.MathUtils.clamp(point.z, -6, 8);
+      } else this.clampWildsPosition(point);
       this.target = point;
     }
   };
@@ -1527,12 +1836,10 @@ export class JungleWorld {
       if (direction.lengthSq() > 0) {
         direction.normalize();
         const p = this.player.position.clone().addScaledVector(direction, dt * 5.4);
-        p.x = THREE.MathUtils.clamp(p.x, -9, 8);
-        p.z = THREE.MathUtils.clamp(
-          p.z,
-          this.rpg?.zone === 'village' ? -6 : -7.4,
-          this.rpg?.zone === 'village' ? 8 : 11,
-        );
+        if (this.rpg?.zone === 'village') {
+          p.x = THREE.MathUtils.clamp(p.x, -9, 8);
+          p.z = THREE.MathUtils.clamp(p.z, -6, 8);
+        } else this.clampWildsPosition(p);
         p.y = p.z < -6.8 && Math.abs(p.x) < 4 ? Math.min(1.08, (-p.z - 6.8) * 1.8) : 0;
         if (this.rpg?.zone === 'village') {
           const blocked = (x: number, z: number) =>
@@ -1573,7 +1880,6 @@ export class JungleWorld {
           const enemyId = enemy.id;
           this.pendingEnemy = null;
           this.target = null;
-          this.attackEnemy(enemyId);
           this.options.onEnemyInteract?.(enemyId);
         }
       }
@@ -1595,10 +1901,18 @@ export class JungleWorld {
       this.player.userData.rightLeg.rotation.x = -stride;
       this.player.userData.leftArm.rotation.x = -stride * 0.7;
       this.player.userData.rightArm.rotation.x = stride * 0.7;
+      this.player.userData.weapon.rotation.z = 0;
       const attackAge = this.elapsed - this.attackStarted;
       if (attackAge < 0.38) {
-        this.player.userData.rightArm.rotation.x = -Math.sin((attackAge / 0.38) * Math.PI) * 1.5;
-        this.player.userData.leftArm.rotation.x = -0.3;
+        if (this.attackAction === 'ritual') {
+          this.player.userData.rightArm.rotation.x = -0.9;
+          this.player.userData.leftArm.rotation.x = -0.75;
+          this.player.userData.weapon.rotation.z = Math.sin((attackAge / 0.38) * Math.PI) * 0.28;
+        } else {
+          this.player.userData.rightArm.rotation.x =
+            -Math.sin((attackAge / 0.38) * Math.PI) * (this.attackAction === 'power' ? 1.9 : 1.5);
+          this.player.userData.leftArm.rotation.x = -0.3;
+        }
       }
       for (const [id, g] of this.enemyMeshes) {
         g.position.y = Math.sin(this.elapsed * 2 + id.length) * 0.035;
@@ -1636,6 +1950,74 @@ export class JungleWorld {
     }
     for (const impact of [...this.impacts]) {
       const age = this.elapsed - impact.userData.start;
+      const effect = impact.userData.effect as string | undefined;
+      if (effect) {
+        const life =
+          effect === 'ritual' ? 1.45 : effect === 'swing' || effect === 'arrow' ? 0.48 : 0.85;
+        if (effect === 'arrow') {
+          const t = THREE.MathUtils.smoothstep(age / 0.38, 0, 1);
+          impact.position.lerpVectors(impact.userData.from, impact.userData.target, t);
+          impact.scale.setScalar(1 - Math.max(0, age - 0.35) * 5);
+        } else if (effect === 'swing') {
+          const pulse = Math.sin(Math.min(age / life, 1) * Math.PI);
+          impact.rotation.y = this.player.rotation.y - 0.75 + (age / life) * 1.5;
+          impact.scale.setScalar(0.72 + pulse * 0.45);
+          impact.children.forEach((child) => child.scale.setScalar(Math.max(0, pulse)));
+        } else if (effect === 'power') {
+          const t = THREE.MathUtils.smoothstep(Math.min(age / 0.55, 1), 0, 1);
+          impact.position.lerpVectors(impact.userData.from, impact.userData.target, t);
+          const burst = Math.max(0, (age - 0.4) / (life - 0.4));
+          impact.children.forEach((child) => {
+            if (child.userData.core) child.scale.setScalar(0.22 + burst * 1.5);
+            else {
+              const a = child.userData.angle as number;
+              child.position.set(
+                Math.cos(a) * burst * 1.25,
+                Math.sin(a * 2) * burst * 0.45,
+                Math.sin(a) * burst * 1.25,
+              );
+              child.scale.setScalar(Math.max(0, 1 - burst) * 0.11);
+            }
+          });
+        } else if (effect === 'ritual') {
+          const t = age / life;
+          impact.children.forEach((child) => {
+            if (child.userData.outer) {
+              child.rotation.z = t * Math.PI * 3;
+              child.scale.setScalar(0.85 + t * 0.45);
+            } else if (child.userData.inner) {
+              child.rotation.z = -t * Math.PI * 4;
+              child.scale.setScalar(1.1 - t * 0.35);
+            } else if (child.userData.pillar) {
+              child.scale.y = Math.sin(Math.min(t * 1.25, 1) * Math.PI) * 1.15;
+            } else {
+              const a = child.userData.angle as number;
+              child.position.y = 0.25 + Math.sin(t * Math.PI) * 0.72;
+              child.position.x = Math.cos(a + t * 2) * 1.25;
+              child.position.z = Math.sin(a + t * 2) * 1.25;
+            }
+          });
+        } else {
+          const pulse = Math.sin(Math.min(age / life, 1) * Math.PI);
+          impact.children.forEach((child) => {
+            if (child.userData.warning) child.scale.setScalar(0.85 + pulse * 0.65);
+            else {
+              const angle = child.userData.angle as number;
+              child.position.set(
+                Math.cos(angle) * (0.86 + pulse * 0.3),
+                0.2 + pulse * 0.28,
+                Math.sin(angle) * (0.86 + pulse * 0.3),
+              );
+              child.scale.setScalar(pulse);
+            }
+          });
+        }
+        if (age > life || this.motion) {
+          impact.removeFromParent();
+          this.impacts = this.impacts.filter((i) => i !== impact);
+        }
+        continue;
+      }
       const life = impact.userData.loot ? 1.3 : 0.55;
       for (const child of impact.children) {
         const angle = child.userData.angle as number;

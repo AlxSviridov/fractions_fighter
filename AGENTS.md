@@ -34,7 +34,7 @@ Firebase Hosting is the authorised host. Never deploy to an unrelated existing F
 
 ## Owner correction and specialist fleet
 
-Read `docs/feedback/2026-09-13-owner-review.md` before product work. It supersedes the original slice acceptance assumptions. Inventory, loot, immediate enemies, a safe village, proper new/load menus, substantial hero silhouettes and action-tier maths are required now. Use the cost-conscious specialist workflow in `docs/TEAM_WORKFLOW.md`, amended by the owner on 2026-09-13. A fleet is a roster of available roles, not a requirement to launch agents every session. Document independent maths review and critical playtest findings.
+Read `docs/feedback/2026-09-13-owner-review.md` and `docs/feedback/2026-09-13-combat-and-equipment-review.md` before product work. It supersedes the original slice acceptance assumptions. Inventory, loot, immediate enemies, a safe village, proper new/load menus, substantial hero silhouettes and action-tier maths are required now. Use the cost-conscious specialist workflow in `docs/TEAM_WORKFLOW.md`, amended by the owner on 2026-09-13. A fleet is a roster of available roles, not a requirement to launch agents every session. Document independent maths review and critical playtest findings.
 
 ## Model budget and bite-size delivery
 

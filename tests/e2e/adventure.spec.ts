@@ -58,6 +58,23 @@ async function solve(page: Page) {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.impact-banner')).toHaveCount(0);
 }
+async function awaitDefence(page: Page, enemy: string) {
+  await expect(page.locator('.enemy-warning')).toContainText(`${enemy} is preparing an attack!`, {
+    timeout: 12000,
+  });
+  await expect(page.locator('.quick-encounter')).toContainText('Raise your ward', {
+    timeout: 12000,
+  });
+  const breakdown = await page.locator('.defence-breakdown').innerText();
+  const match = breakdown.match(/Attack (\d+).*Armour absorbs (\d+).*?(\d+) health at risk/);
+  if (!match) throw new Error(`Could not read defence breakdown: ${breakdown}`);
+  return { incoming: Number(match[1]), armour: Number(match[2]), damage: Number(match[3]) };
+}
+
+async function wrongQuickAnswer(page: Page) {
+  const answer = await quickAnswer(page);
+  return answer === '<' ? '>' : '<';
+}
 
 test('complete expedition, supported quick maths, equipment, quest reward and save transfer', async ({
   page,
@@ -139,6 +156,66 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
     .click();
   await expect(page.locator('.pack-item')).toHaveCount(6);
   expect(errors).toEqual([]);
+});
+
+test('an expired quick rune causes no damage and remains solvable', async ({ page }) => {
+  await page.goto('/');
+  await createHero(page, 'Timer Tester');
+  await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
+  await approach(page, 'Bramble Prowler');
+  await cast(page, 'Quick strike');
+  await expect(page.locator('.health-orb strong')).toHaveText('100');
+
+  // Explorer quick runes use the actual visible 25-second timer; expiry relaxes ordinary strikes.
+  await expect(page.locator('.rune-meta')).toContainText('25-second rune');
+  await expect(page.locator('.rune-feedback')).toContainText('No damage taken', { timeout: 28000 });
+  await expect(page.locator('.health-orb strong')).toHaveText('100');
+  await solve(page);
+});
+
+test('a nearby enemy telegraphs, ward maths blocks or mitigates attacks, and longer maths is protected', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await createHero(page, 'Ward Tester');
+  await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
+  await approach(page, 'Bramble Prowler');
+  await page.getByLabel('Deselect target').click();
+
+  const blocked = await awaitDefence(page, 'Bramble Prowler');
+  expect(blocked.incoming).toBeGreaterThan(blocked.armour);
+  expect(blocked.damage).toBeGreaterThan(0);
+  await solve(page);
+  await expect(page.locator('.health-orb strong')).toHaveText('100');
+  await expect(page.getByRole('status')).toContainText('Attack blocked!');
+
+  const hit = await awaitDefence(page, 'Bramble Prowler');
+  const beforeWrong = Number(await page.locator('.health-orb strong').innerText());
+  await page
+    .getByRole('button', { name: `Answer ${await wrongQuickAnswer(page)}`, exact: true })
+    .click();
+  await expect(page.locator('.quick-encounter')).toHaveCount(0);
+  await expect(page.locator('.health-orb strong')).toHaveText(String(beforeWrong - hit.damage));
+  await expect(page.getByRole('status')).toContainText(
+    `Armour absorbed ${hit.armour} of ${hit.incoming}`,
+  );
+
+  await approach(page, 'Bramble Prowler');
+  await cast(page, 'Power skill');
+  await expect(page.locator('.rune-meta')).toContainText('Take your time');
+  const healthBeforeFocus = await page.locator('.health-orb strong').innerText();
+  // The enemy remains close for longer than its 8-second attack lead, but a focus task pauses threats.
+  await page.waitForTimeout(9500);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.locator('.quick-encounter')).toHaveCount(0);
+  await expect(page.locator('.health-orb strong')).toHaveText(healthBeforeFocus);
+  await solve(page);
+
+  // A prominent, labelled control is always available in the wilds after the protected task closes.
+  await expect(page.getByRole('button', { name: 'Return to Haven', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Return to Haven', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Haven', exact: true })).toBeVisible();
+  await expect(page.locator('.health-orb strong')).toHaveText('100');
 });
 
 test('separate heroes, settings persistence, keyboard controls, import rejection and compact layout', async ({

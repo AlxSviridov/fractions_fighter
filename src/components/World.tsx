@@ -1,10 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { JungleWorld } from '../game/world';
 import type { Save } from '../game/state';
+import type { CombatAction } from '../game/rpg';
 export type WorldHandle = {
   goTo: (id: string) => void;
   approachEnemy: (id: string) => void;
-  attackEnemy: (id: string) => void;
+  attackEnemy: (id: string, action?: CombatAction) => void;
+  telegraphEnemy: (id: string) => void;
   celebrateLoot: () => void;
   celebrate: (id: string) => void;
   control: (key: string, down: boolean) => void;
@@ -31,8 +33,9 @@ const World = forwardRef<WorldHandle, Props>(function World(props, ref) {
     ref,
     () => ({
       goTo: (id) => engine.current?.goTo(id),
-      approachEnemy: id => engine.current?.approachEnemy(id),
-      attackEnemy: id => engine.current?.attackEnemy(id),
+      approachEnemy: (id) => engine.current?.approachEnemy(id),
+      attackEnemy: (id, action) => engine.current?.attackEnemy(id, action),
+      telegraphEnemy: (id) => engine.current?.telegraphEnemy(id),
       celebrateLoot: () => engine.current?.celebrateLoot(),
       celebrate: (id) => engine.current?.celebrate(id),
       control: (key, down) => engine.current?.control(key, down),
@@ -44,8 +47,8 @@ const World = forwardRef<WorldHandle, Props>(function World(props, ref) {
     let world: JungleWorld;
     try {
       world = new JungleWorld(host.current!, latest.current.save, {
-        onEnemyInteract: id => latest.current.onEnemyInteract(id),
-        onZoneInteract: zone => latest.current.onZoneInteract(zone),
+        onEnemyInteract: (id) => latest.current.onEnemyInteract(id),
+        onZoneInteract: (zone) => latest.current.onZoneInteract(zone),
         onNearby: (id) => latest.current.onNearby(id),
         onInteract: () => latest.current.onInteract(),
         onTargetInteract: (id) => latest.current.onTargetInteract(id),

@@ -22,3 +22,9 @@ Independent bounded review of the rebuilt development app at localhost:5173, usi
 ## Follow-up status
 
 Findings sent directly to the integrating agent. No application code changed by this reviewer. This document records the observed build before any integrating-agent fixes; fixes require separate recheck evidence.
+
+## Build 0.3 integration follow-up
+
+Root inspected the actual built game in the in-app browser at 1280×720 on 2026-09-13. Attack animation now occurs after the question clears; an optional Review last rune retains the worked method. Inventory shows total-stat comparisons and original item illustrations. Proactive enemy wards show incoming attack, armour absorption and health at risk. Successful blocking and movement out of telegraph range were observed. The river route, pirate outpost and guardian sanctuary are visually distinguishable; bridge bounds were extended after code review found the first scenic pass inaccessible. Return/toast overlap with the inventory and short-laptop quest/trail overlap were corrected.
+
+Critical remaining play hypothesis: scenery makes the space more legible, but a single compact arena, identical ward patterns and finite question/drop pools still limit the desire to explore. The far-bank beacon has no reward yet. Next product work should add a real optional discovery and purposeful village spending before simply making the map larger. Mooncat still has a substantial portrait/world silhouette gap. These are simulated review findings, not real child evidence.
