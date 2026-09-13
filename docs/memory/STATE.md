@@ -1,29 +1,43 @@
 # Current state
-Updated: 2026-09-12, initial development session (release validation still in progress).
 
-## Implemented
-- Working React / TypeScript / Vite / Three.js app, original procedural isometric jungle.
-- Mouse-first ground movement and click-to-approach shrine/chest/guardian interaction. Optional WASD/arrows/E and small-screen direction buttons.
-- Name, four skin tones, three hairstyles, three initial outfit colours; fourth outfit earned from guardian.
-- Three seals, optional cache, three-phase maths guardian, XP/levels, victory and another seeded bounded expedition.
-- Five original maths generators and three manual difficulty levels, protected untimed thinking, retry/hint feedback.
-- Local versioned saves with strict import validation, export, backup on import and corrupt-save recovery. Hint history survives closing/reloading. Parent report separates independent first tries from assisted completion.
-- Git-backed operating instructions, design, architecture, learning design, art pipeline, roadmap, ADR and session script. GitHub CI and dedicated Firebase Hosting config.
+Updated: 2026-09-13. **Fractions Fighter rebuild in progress; not yet a release.**
 
-## Validation so far
-22 unit/invariant tests pass (7,500 generated maths cases included). Strict TypeScript and production build pass. Runtime npm audit reports zero vulnerabilities. Manual browser QA confirmed real WebGL rendering, creator, click-to-approach and wrong-answer feedback. End-to-end release checks are in progress; do not assume they have passed yet.
+## Owner direction / acceptance
+The owner rejected the old Verdant quiz expedition as an undercooked MVP. Thirteen corrections are canonical in `docs/feedback/2026-09-13-owner-review.md`. Name is Fractions Fighter. Explicit specialist fleet requested; see `docs/TEAM_WORKFLOW.md`. Owner additionally requested incremental GitHub commits and tracker updates during ongoing work, not only at session end.
 
-A first browser run found a navigation request could be lost while the lazy renderer starts after reload. Fixed by queuing destinations until the current world seed reports ready; verification pending. Static scenery is now merged by material to reduce draw calls; needs final rendered check.
+## Implemented in working tree
+- New main menu: New Game, Continue, Load Game, Settings, learning journal.
+- New Game creates a separate hero, chooses six supplied avatar portraits plus three classes. No mid-run identity recolouring UI.
+- Original reference-inspired 3D hero silhouettes: three human explorers, wizard cat, rune construct, cloud elemental; class weapons and equipment visuals.
+- Separate Haven village with gate, buildings, fountain/forge/market/NPC scenery; wilds with five actual combat enemies and health bars.
+- Click-to-approach, quick strike / power skill / ancient ritual. 1×/3×/7× damage; math complexity scales with ability.
+- Optional falling quick comparison minigame (< = >); medium and ritual calculation always untimed; hints / relaxed mode.
+- Persistent inventory, equippable weapon/armour/relic, rarity, stats, guaranteed enemy loot, XP, levels, gold, potions, quest rewards / next expedition.
+- Cinzel + Crimson Pro fonts bundled locally. Rebuilt dark/brass game HUD, health orb, inventory and loot interface.
+- Executable local launcher `Launch Fractions Fighter.command` builds and opens the local game (integration check pending).
+- Existing original maths/state tests retained; new specialist math/domain/review tests added.
 
-## Environment / deployment
-GitHub CLI works with network access outside sandbox; sandbox-only auth errors were misleading. Local server http://localhost:5173 . Firebase project created: `fractions-fighter-verdant` (dedicated, billing not enabled). CLI is project-local. Hosting not yet deployed at this checkpoint. Node 25 available locally, Node 22 pinned for CI/new devices; Firebase CLI warns about a Node 25 transitive package engine.
-Blender not installed; procedural assets require no external editor.
+## Validation / active fixes
+Combined app compiled successfully after integration. Setter: 12 tests pass; independent reviewer added prompt-derived arithmetic checks and found no arithmetic blockers. Percentage teaching feedback fixed to use halves/tenths/quarters. RPG domain: 8 tests pass. 3D specialist manually verified village gate and enemy target clicks in an isolated renderer preview.
+Full integrated browser/launcher/new-load/inventory/complete-quest checks are next. Existing pre-rebuild end-to-end tests must be updated for the new game flow.
 
-## Known scope limits
-This is a first playable slice, not the full child-pilot MVP. One bounded generated clearing, no infinite chunk streaming, no full melee/bow combat, no authored Blender rig, no cloud saves or authenticated parent profiles, no adaptive difficulty, no reviewed complete 11+ curriculum. Character returns to camp on reload but earned encounters/progress persist. Commercial reference fidelity and 20–30 minute authored pacing remain future work.
+Independent save review found a partial-write failure in create/import (active save written before archive success), archive wrapper validation weakness and potential question-ID reuse after attempt cap. Specialist is implementing transactional save persistence and tests; root is integrating it. Do not claim save/import release-ready before this passes.
 
-## Exact next actions
-1. Finish full Playwright expedition / controls / save import checks; fix actual failures.
-2. Recheck rendered desktop and compact layouts after scenery batching.
-3. Publish checked build to dedicated Firebase Hosting, verify live URL and headers.
-4. Update STATE, BACKLOG and session with final evidence; commit/push; inspect GitHub CI.
+## Team ownership right now
+Root: App / HUD / MathEncounter / World wrapper / launcher / integration / docs.
+Game-systems agent: RPG domain completed; now profiles persistence and tests.
+World/assets agent: renderer completed.
+Maths setter/reviewer: generators + independent review completed.
+Playtester: critical integrated browser review in progress; simulated perspective, not a real child trial.
+
+## Git / hosting
+Remote: https://github.com/AlxSviridov/fractions_fighter.git . Initial checkpoint `830fa9e` pushed. This rebuild checkpoint will be committed and pushed together with this tracker. Firebase project `fractions-fighter-verdant` exists; no verified Hosting release yet. Project name remains an infrastructure identifier despite game title change. No billing enabled. Node22 pinned; Node25 on this machine produces a Firebase-tool transitive engine warning.
+
+## Next actions
+1. Integrate transactional per-hero save fix and run domain tests.
+2. Inspect integrated game, address playtester findings, update end-to-end suite and verify complete quest/new/load/export/import.
+3. Verify clickable launcher and desktop/compact UI, publish checked build to dedicated Firebase, inspect GitHub CI.
+4. Update tracker/session and push final verified checkpoint. Do not repeat old MVP acceptance claims.
+
+## Scope remaining
+Not yet infinite world streaming or commercial-quality authored animation. Current models are deliberate polygonal reinterpretations of supplied 2D portraits, not exact 3D conversions. NPC scenery currently uses UI quest/services controls. No cloud saves/authenticated parent profiles, adaptive difficulty, full curriculum, wear system or skill tree yet. Real child playtesting remains required.

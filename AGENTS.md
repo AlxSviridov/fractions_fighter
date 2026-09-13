@@ -1,15 +1,18 @@
 # Project operating instructions
 
 ## Read first, every session
+
 1. Read this file, `docs/memory/STATE.md`, and `docs/memory/BACKLOG.md`.
 2. Read `docs/memory/USER_PREFERENCES.md` and the latest session note.
 3. Inspect `git status`, branch, remote and recent commits before changing anything.
 4. Read the relevant design / architecture docs and decision records. Do not assume chat history exists.
 
 ## Product contract
-Build **Verdant — The Lost Map**, repository `AlxSviridov/fractions_fighter`: a browser adventure supporting 11+ maths practice for ages 9–11, laptop first. Original jungle/ancient-ruin setting; melee, bows, relic magic, no firearms. Meaningful maths powers exciting actions. Free movement and safe thinking time. Customisable protagonist. Configurable difficulty, measurable topic progress, parent view. See `docs/GAME_DESIGN.md` for the loop and honest release scope.
+
+Build **Fractions Fighter**, repository `AlxSviridov/fractions_fighter`: a browser adventure supporting 11+ maths practice for ages 9–11, laptop first. Original jungle/ancient-ruin setting; melee, bows, relic magic, no firearms. Meaningful maths powers exciting actions. Free movement and safe thinking time. Customisable protagonist. Configurable difficulty, measurable topic progress, parent view. See `docs/GAME_DESIGN.md` for the loop and honest release scope.
 
 ## Work and memory
+
 - Git-tracked files are durable memory; model-specific chat memory is supplementary.
 - Start with `npm ci` on a new device. Use Node 22 LTS. `npm run dev` runs the app.
 - Keep maths generators and game transitions pure, typed and separate from rendering.
@@ -22,7 +25,13 @@ Build **Verdant — The Lost Map**, repository `AlxSviridov/fractions_fighter`: 
 - Scope is ambitious; deliver tested increments with explicit limitations rather than a superficial feature checklist.
 
 ## Quality gates
-`npm run check` (maths/state/save tests + strict TypeScript + production build), and `npm run test:e2e` for a release. Inspect the rendered game in a real browser. Test keyboard controls, an entire expedition, mistakes/hints, save/reload, character changes, and parent reporting. Avoid unnecessary repeated tests. Use seeded generation, exact rational comparisons and independent test oracles. Include accessibility and reduced-motion support.
+
+`npm run check` (maths/state/save tests + strict TypeScript + production build), and `npm run test:e2e` for a release (tests the built bundle on port 4173). `npm run format` keeps code and documentation readable. See `docs/TESTING.md`. Inspect the rendered game in a real browser. Test keyboard controls, an entire expedition, mistakes/hints, save/reload, character changes, and parent reporting. Avoid unnecessary repeated tests. Use seeded generation, exact rational comparisons and independent test oracles. Include accessibility and reduced-motion support.
 
 ## Delivery
+
 Firebase Hosting is the authorised host. Never deploy to an unrelated existing Firebase project. See `docs/DEPLOYMENT.md`. GitHub Actions performs validation; deployment uses a verified explicit project. No paid services or billing activation without approval. Prefer local procedural assets until authored models are needed; source and license every imported asset.
+
+## Owner correction and specialist fleet
+
+Read `docs/feedback/2026-09-13-owner-review.md` before product work. It supersedes the original slice acceptance assumptions. Inventory, loot, immediate enemies, a safe village, proper new/load menus, substantial hero silhouettes and action-tier maths are required now. Use the bounded rotating specialist workflow in `docs/TEAM_WORKFLOW.md`, explicitly requested by the owner. Document independent maths review and critical playtest findings.

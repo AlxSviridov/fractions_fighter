@@ -14,9 +14,13 @@
     "test:e2e": "playwright test",
     "check": "npm run test && npm run build",
     "deploy": "npm run check && firebase deploy --only hosting",
-    "memory": "node scripts/session.mjs"
+    "memory": "node scripts/session.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/crimson-pro": "^5.3.0",
     "lucide-react": "^1.45.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
@@ -29,6 +33,7 @@
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^6.1.1",
     "firebase-tools": "^15.30.0",
+    "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^4.1.11"

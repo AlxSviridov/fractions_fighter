@@ -1,4 +1,5 @@
 # Stable user preferences
+
 - Owner: AlxSviridov. Repository: https://github.com/AlxSviridov/fractions_fighter.git
 - Audience confirmed 2026-09-12: ages 9–11, laptop first; tablet controls desirable.
 - Turn-key development including design, code, animations, assets and eventual Blender models.
@@ -12,3 +13,7 @@
 - Maintain GitHub. Firebase deployment authorised once a verified playable MVP exists. No Firebase project identifier supplied initially.
 
 - Confirmed during first session: isometric view, Diablo-inspired UI; mouse clicks are the primary movement and combat/interaction mechanic. Keyboard is secondary.
+
+## Superseding owner corrections, 2026-09-13
+
+Game name is Fractions Fighter, not Verdant. The owner rejected the first slice as an MVP. All thirteen comments are saved in `docs/feedback/2026-09-13-owner-review.md`. Require actual inventory/loot/XP/early combat, safe village and wilds, proper menu → character creation → play, local clickable launcher, thematic fonts, richer reference-based heroes and maths action tiers (quick falling comparisons for simple actions; untimed hard calculations for powerful abilities). A bounded specialist fleet with independent maths review and critical gamer-perspective playtesting is now explicitly requested.
