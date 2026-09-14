@@ -28,6 +28,17 @@ Click an enemy to approach until the selected action is in range, then act once.
 
 ## 3. Resource-powered combat and maths
 
+### Owner requirements — explicit acceptance contract
+
+These are required future mechanics, not descriptions of the current legacy combat. Track each in ENGINE_PLAN.md under the matching owner requirement ID.
+
+- **MATH-3a — Melee:** each committed hit spends stamina. Solve substantial arithmetic to refresh stamina, specifically three-digit × two-digit multiplication (XXX × YY) or division of comparable complexity. During this maths, everything in the world pauses. This refill has no time limit.
+- **MATH-3b — Ranged:** firing spends arrows. Solve arithmetic of similar complexity to melee to replenish arrows. Harder maths earns stronger ammunition: fire arrows and frost arrows that freeze enemies. Both normal and elemental arrow maths pause the whole world and have no time limit.
+- **MATH-3c — Spells:** simple spells spend mana. Geometry maths refreshes mana so magic feels different from melee and bows. Powerful spells require BOTH mana AND an additional complex maths task to cast; these tasks span different areas, not geometry alone. Some quests must require actual spell use, such as destroying or unsealing a door that weapons cannot open. Mana refill and powerful-spell maths pause the whole world and have no time limit.
+- **MATH-3d — Defence:** use very quick maths: choose >, = or <, or multiplication/division facts within the 12 × 12 tables (or equivalent simple facts). This is the ONLY time-limited maths. Failure to solve before expiry means the incoming hit lands. Correct answers block that hit. The world remains frozen while the separate defence response timer runs; this is the sole thinking-time timer exception.
+
+Maths-based merchant purchases also remain untimed, including the long, tricky gold-tier tasks in section 7. All pause/resource rules below implement this contract; balance numbers are proposals only.
+
 All classes can learn melee, ranged and spells; class gives starting preferences, not permanent curriculum lockout. Begin with small full reserves so the first encounter is immediately playable. Show the exact reward before choosing a question. No passive stamina/mana restoration while standing still; returning to Haven may safely refill all basic reserves, with no XP for refills.
 
 | Channel        | Ordinary action                                      | Untimed preparation                                                                              | Starting balance hypothesis                                         |

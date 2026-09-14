@@ -1644,13 +1644,9 @@ export class JungleWorld {
   }
   setPaused(paused: boolean) {
     this.paused = paused;
-    if (paused) {
-      this.keys.clear();
-      this.target = null;
-      this.pendingInteraction = null;
-      this.pendingEnemy = null;
-      this.pendingZone = false;
-    }
+    // Pausing suspends a click-to-approach command; it must resume after a ward.
+    // Clear held keys so returning from a dialog cannot leave movement stuck on.
+    if (paused) this.keys.clear();
   }
   goTo(id: string) {
     const l = LANDMARKS.find((l) => l.id === id);

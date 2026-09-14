@@ -1,7 +1,7 @@
 /** Fractions Fighter: serialisable, renderer-independent adventure rules. */
 import type { Topic } from './math';
-import { reconcileInventory, validateInventoryLayout } from './inventory';
-import type { InventoryLayout } from './inventory';
+import { moveInventoryItem, reconcileInventory, validateInventoryLayout } from './inventory';
+import type { InventoryDestination, InventoryLayout } from './inventory';
 
 export type ClassId = 'warden' | 'ranger' | 'arcanist';
 export type Zone = 'village' | 'wilds';
@@ -405,7 +405,12 @@ export function attackEnemy(
 }
 export function equipItem(s: RpgState, itemId: string): RpgState {
   const item = s.inventory.find((i) => i.id === itemId);
-  if (!item || s.equipment[item.slot] === item.id) return s;
+  if (
+    !item ||
+    s.equipment[item.slot] === item.id ||
+    (s.zone !== 'village' && s.inventoryLayout.stash.includes(item.id))
+  )
+    return s;
   return {
     ...s,
     equipment: { ...s.equipment, [item.slot]: item.id },
@@ -433,6 +438,26 @@ export function unequipItem(s: RpgState, slot: ItemSlot): RpgState {
     ),
     lastReward: `${item.name} returned to your pack.`,
   };
+}
+/** Moves an owned, unequipped item between the spatial pack and Haven stash. */
+export function moveStoredItem(
+  s: RpgState,
+  itemId: string,
+  destination: InventoryDestination,
+): RpgState {
+  if (
+    s.zone !== 'village' &&
+    (destination.kind === 'stash' || s.inventoryLayout.stash.includes(itemId))
+  )
+    return s;
+  const inventoryLayout = moveInventoryItem(
+    s.inventoryLayout,
+    s.inventory,
+    s.equipment,
+    itemId,
+    destination,
+  );
+  return inventoryLayout === s.inventoryLayout ? s : { ...s, inventoryLayout };
 }
 export function usePotion(s: RpgState): RpgState {
   const maxHp = combatStats(s).maxHp;

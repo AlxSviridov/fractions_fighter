@@ -403,3 +403,191 @@
   z-index: 2;
   background: #17211d;
 }
+
+.ff-game .spatial-inventory-layout {
+  grid-template-columns: minmax(150px, 0.64fr) minmax(0, 1.65fr);
+}
+
+.ff-game .spatial-storage {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #b4975f77;
+  background:
+    linear-gradient(90deg, #d9bc7830 1px, transparent 1px) 0 0 / 17px 17px,
+    linear-gradient(#d9bc781c 1px, transparent 1px) 0 0 / 17px 17px,
+    linear-gradient(145deg, #38423b, #1b2521 58%, #121816);
+  box-shadow:
+    inset 0 0 0 3px #101412,
+    inset 0 0 18px #000a;
+}
+
+.ff-game .spatial-inventory-layout > .item-detail {
+  grid-column: 2;
+  margin-top: 0;
+}
+
+.ff-game .storage-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #b99a5a77;
+}
+
+.ff-game .storage-tabs button {
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  color: #bdb486;
+  background: transparent;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+}
+
+.ff-game .storage-tabs button[aria-selected='true'] {
+  border-color: #b99a5a77;
+  color: #f0d78d;
+  background: #18211d;
+}
+
+.ff-game .storage-tabs span {
+  color: #99a987;
+}
+
+.ff-game .spatial-pack {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-template-rows: repeat(4, 52px);
+  gap: 3px;
+  min-width: 0;
+}
+
+.ff-game .pack-cell {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid #67715c66;
+  background: linear-gradient(145deg, #263129, #121916);
+}
+
+.ff-game .pack-cell:hover,
+.ff-game .pack-cell:focus-visible {
+  border-color: #d7bb70;
+  background: #3b493a;
+}
+
+.ff-game .spatial-item {
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--rarity, #aeb799) 70%, #3a3429);
+  border-left-width: 3px;
+  color: var(--rarity, #e4dcc0);
+  background:
+    radial-gradient(
+      circle at 50% 25%,
+      color-mix(in srgb, var(--rarity) 25%, transparent),
+      transparent 62%
+    ),
+    #1b251f;
+}
+
+.ff-game .spatial-item:hover,
+.ff-game .spatial-item:focus-visible,
+.ff-game .spatial-item.selected {
+  outline: 2px solid var(--rarity, #e2ce91);
+  outline-offset: -2px;
+  background: #354630;
+}
+
+.ff-game .spatial-item small {
+  max-width: 100%;
+  overflow: hidden;
+  font-family: 'Crimson Pro', serif;
+  font-size: 10px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-game .stash-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 6px;
+  min-height: 210px;
+}
+
+.ff-game .stash-list > p {
+  grid-column: 1 / -1;
+  align-self: center;
+  text-align: center;
+}
+
+.ff-game .stash-item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid color-mix(in srgb, var(--rarity, #aeb799) 55%, #3a3429);
+  color: #e4dcc0;
+  background: #18211d;
+  text-align: left;
+}
+
+.ff-game .stash-item.selected,
+.ff-game .stash-item:hover,
+.ff-game .stash-item:focus-visible {
+  outline: 1px solid var(--rarity, #e2ce91);
+}
+
+.ff-game .stash-item span {
+  display: grid;
+  min-width: 0;
+}
+
+.ff-game .stash-item strong,
+.ff-game .stash-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ff-game .stash-item small {
+  color: #bdb486;
+  font-size: 10px;
+}
+
+.ff-game .inventory-feedback {
+  margin: 10px 0 0;
+  color: #efc28b;
+  font-size: 13px;
+}
+
+.ff-game .stash-action {
+  margin-top: 10px;
+}
+
+@media (max-width: 720px) {
+  .ff-game .spatial-inventory-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ff-game .spatial-inventory-layout > .item-detail {
+    grid-column: auto;
+  }
+
+  .ff-game .spatial-pack {
+    grid-template-rows: repeat(4, 38px);
+  }
+
+  .ff-game .spatial-item small {
+    display: none;
+  }
+}

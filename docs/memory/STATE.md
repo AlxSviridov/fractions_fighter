@@ -1,6 +1,6 @@
 # Current state
 
-Updated 14 September 2026. Development build 0.3 plus engine-plan P1 and P2 domain. Owner acceptance remains pending; the larger redesign is not implemented yet.
+Updated 14 September 2026. Development build 0.3 plus engine-plan P1–P3 inventory. Owner acceptance remains pending; the larger redesign is not implemented yet.
 
 ## Latest verified increment
 
@@ -26,4 +26,8 @@ Authorised repo: AlxSviridov/fractions_fighter. Planning/inherited-work checkpoi
 
 ## Exact next action
 
-Finish P2 browser evidence and push, confirm fresh GitHub Actions. Then P3: pointer/keyboard grid placement and Haven stash UI; replace inherited 200-item overflow conversion with claimable rewards. P2 preserves old collections in stash metadata, but list UI still exposes all ownership and does not enforce village-only stash access yet. Follow ENGINE_PLAN before changing every combat channel together.
+Owner requested stopping after P3 and resuming in a fresh session. P2 ef5bf0a is pushed. P3 now implements the spatial pack, keyboard/click placement, drag/drop, occupied-cell count and village-only stash access. Invalid placement retains the previous layout; empty carried inventory is supported. See the latest session note for final validation and push evidence, superseding the earlier P2 status above.
+
+P2 GitHub run 34824017079 failed because pausing erased pending click routes, so travel wards could prevent arrival. P3 preserves routes while clearing held keys and adds a route-pause browser regression. Inspect the pushed P3 Actions run first next session; CI is not claimed fixed until that passes.
+
+Next product increment is P3b: replace inherited 200-owned-item automatic gold conversion with persistent claimable rewards. Forty-cell pack overflow already uses stash; the separate global cap remains lossy. Dedicated hover/focus tooltips and broader equipment slots remain refinements. Then follow ENGINE_PLAN into resource-driven combat. No Firebase deployment this session.

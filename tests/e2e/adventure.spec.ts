@@ -21,6 +21,9 @@ async function approach(page: Page, enemy: string) {
     .locator('.enemy-tracker')
     .getByRole('button', { name: new RegExp(`^${enemy}`) })
     .click();
+  await waitForArrival(page, enemy);
+}
+async function waitForArrival(page: Page, enemy: string) {
   const arrival = page.locator('.combat-choice').getByRole('heading', { name: enemy, exact: true });
   const ward = page.getByRole('dialog', { name: /Raise your ward/ });
   // Enemies can legitimately attack during a walk, especially on software-rendered CI.
@@ -46,7 +49,7 @@ async function cast(page: Page, action: 'Quick strike' | 'Power skill' | 'Ancien
       await page
         .locator('.combat-choice')
         .getByRole('button', { name: new RegExp(`^${action}`) })
-        .click({ timeout: 2000 });
+        .click({ timeout: 10000 });
     } catch (error) {
       if (await ward.isVisible()) {
         await handleTravelWard(page);
@@ -198,7 +201,7 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
     .getByRole('navigation', { name: 'Game navigation' })
     .getByRole('button', { name: 'Inventory', exact: true })
     .click();
-  await expect(page.locator('.pack-item')).toHaveCount(6);
+  await expect(page.locator('.spatial-item')).toHaveCount(3);
   expect(errors).toEqual([]);
 });
 
@@ -334,10 +337,10 @@ test('character sheet unequips safely, restores gear and persists the result', a
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('World paused');
   await expect(page.locator('.inventory-stats')).toContainText('12 Attack');
-  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await expect(page.locator('.spatial-item')).toHaveCount(0);
   await page.getByRole('button', { name: 'Unequip Wayfarer blade', exact: true }).click();
   await expect(page.locator('.inventory-stats')).toContainText('10 Attack');
-  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await expect(page.locator('.spatial-item')).toHaveCount(1);
   await expect(
     page.getByRole('button', { name: 'Equip Wayfarer blade', exact: true }),
   ).toBeVisible();
@@ -348,12 +351,58 @@ test('character sheet unequips safely, restores gear and persists the result', a
   await page.getByRole('button', { name: /Continue adventure Equipment Tester/ }).click();
   await page.keyboard.press('i');
   await expect(page.locator('.inventory-stats')).toContainText('10 Attack');
-  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await expect(page.locator('.spatial-item')).toHaveCount(1);
   await page.getByRole('button', { name: 'Equip Wayfarer blade', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('.inventory-stats')).toContainText('12 Attack');
-  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await expect(page.locator('.spatial-item')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByRole('button', { name: 'Close dialog', exact: true })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+});
+
+test('a click-to-approach route survives an inventory thinking pause', async ({ page }) => {
+  await page.goto('/');
+  await createHero(page, 'Route Tester');
+  await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
+  await page
+    .locator('.enemy-tracker')
+    .getByRole('button', { name: /^Shard Guardian/ })
+    .click();
+  await page.keyboard.press('i');
+  await expect(page.getByRole('dialog')).toContainText('World paused');
+  await page.keyboard.press('Escape');
+  await waitForArrival(page, 'Shard Guardian');
+  await expect(page.locator('.combat-choice h2')).toHaveText('Shard Guardian');
+});
+
+test('spatial pack supports keyboard, drag, stash retrieval and empty carried inventory', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await createHero(page, 'Pack Tester');
+  await page.keyboard.press('i');
+  await page.getByRole('button', { name: 'Unequip Wayfarer blade', exact: true }).click();
+  await page.getByRole('gridcell', { name: 'Pack cell 2, 1', exact: true }).press('Enter');
+  await expect(page.locator('.spatial-item')).toHaveCSS('grid-column-start', '2');
+  await expect(page.getByRole('tab', { name: /Backpack/ })).toContainText('3 / 40');
+  await page.getByRole('button', { name: 'Store in Haven stash', exact: true }).click();
+  await expect(page.locator('.stash-item')).toHaveCount(1);
+  await page.getByRole('tab', { name: /Backpack/ }).click();
+  await page.getByRole('gridcell', { name: 'Pack cell 6, 1', exact: true }).click();
+  await expect(page.locator('.spatial-item')).toHaveCSS('grid-column-start', '6');
+  await page
+    .locator('.spatial-item')
+    .dragTo(page.getByRole('gridcell', { name: 'Pack cell 9, 1', exact: true }));
+  await expect(page.locator('.spatial-item')).toHaveCSS('grid-column-start', '9');
+  await page.getByRole('gridcell', { name: 'Pack cell 10, 4', exact: true }).click();
+  await expect(page.locator('.inventory-feedback')).toContainText('cannot fit');
+  await expect(page.locator('.spatial-item')).toHaveCSS('grid-column-start', '9');
+  await page.getByRole('button', { name: 'Store in Haven stash', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
+  await page.keyboard.press('i');
+  await expect(page.getByRole('tab', { name: /Haven stash/ })).toHaveCount(0);
+  await expect(page.locator('.spatial-item')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
 });

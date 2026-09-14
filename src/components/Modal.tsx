@@ -36,7 +36,10 @@ export function Modal({
         if (!all.length) return;
         const first = all[0],
           last = all[all.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
+        if (!node.contains(document.activeElement)) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+        } else if (e.shiftKey && document.activeElement === first) {
           e.preventDefault();
           last.focus();
         } else if (!e.shiftKey && document.activeElement === last) {
@@ -45,9 +48,11 @@ export function Modal({
         }
       }
     };
-    node.addEventListener('keydown', key);
+    // A storage action may remove the focused button; retain Escape and the
+    // focus trap even when the browser temporarily returns focus to the body.
+    document.addEventListener('keydown', key);
     return () => {
-      node.removeEventListener('keydown', key);
+      document.removeEventListener('keydown', key);
       previous?.focus();
     };
   }, [onClose]);

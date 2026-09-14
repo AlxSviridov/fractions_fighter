@@ -27,7 +27,7 @@ Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-
 - [x] Full expedition → loot/equip → quest reward → reload/export/import: full 5-test browser suite passed.
 - [x] Separate heroes/settings/keyboard/compact layout and enemy defence regressions: browser suite passed.
 - [x] P1 code + tracker + session pushed as c557253.
-- [ ] Confirm green GitHub CI after P2/travel-ward regression fix.
+- [ ] Confirm green GitHub CI after P3 route-preservation fix. P2 run 34824017079 still failed; see latest session note.
 - [ ] Verified Firebase Hosting release and live smoke test.
 
 ## Next meaningful gameplay increments
@@ -49,6 +49,8 @@ Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-
 - [ ] Parent-owned cloud profiles, conflict-safe saves and security tests.
 
 ## Superseding execution order
+
+14 September handoff: P3 spatial pack and village-only stash are implemented. The old next-action paragraph below is superseded: inspect the pushed P3 CI result, then start P3b global-cap claimable rewards in a fresh session. Owner requested stopping after the current piece. Explicit MATH-3a–3d acceptance checklists now appear in ENGINE_REWORK section 3 and ENGINE_PLAN; melee stamina/arithmetic, arrow crafting/fire/frost, geometry mana/mixed-topic powerful spells/spell-only quests, and defence-only timed facts are all required and still pending implementation.
 
 Follow [ENGINE_PLAN.md](../ENGINE_PLAN.md), P1 through P18, using [ENGINE_REWORK.md](../ENGINE_REWORK.md) as the contract. This replaces the ordering above and retires per-attack quick maths as the long-term combat model. Planning and P1 character/equipment sheet complete; P2 spatial inventory domain/migration implemented; P3 spatial UI/stash/full-pack recovery is next after validation/push. Existing build-0.3 final release verification remains outstanding.
 
