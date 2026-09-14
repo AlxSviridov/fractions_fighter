@@ -23,10 +23,10 @@ Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-
 
 - [x] Independent new maths review: 23 focused tests pass.
 - [x] Root browser inspection of hero creation, village/wilds, successful ward, inventory art, laptop layout and pointer escape from telegraph.
-- [ ] Final unit + strict TypeScript + production build.
-- [ ] Full expedition → loot/equip → quest reward → reload/export/import.
-- [ ] Separate heroes/settings/keyboard/compact layout and enemy defence regressions.
-- [ ] Commit code + tracker + session, push and inspect GitHub CI.
+- [x] Final unit + strict TypeScript + production build: 71 tests and build pass in P1.
+- [x] Full expedition → loot/equip → quest reward → reload/export/import: full 5-test browser suite passed.
+- [x] Separate heroes/settings/keyboard/compact layout and enemy defence regressions: browser suite passed.
+- [ ] P1 code + tracker + session push and fresh GitHub CI confirmation.
 - [ ] Verified Firebase Hosting release and live smoke test.
 
 ## Next meaningful gameplay increments
@@ -49,4 +49,6 @@ Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-
 
 ## Superseding execution order
 
-Follow [ENGINE_PLAN.md](../ENGINE_PLAN.md), P1 through P18, using [ENGINE_REWORK.md](../ENGINE_REWORK.md) as the contract. This replaces the ordering above and retires per-attack quick maths as the long-term combat model. Planning checkpoint complete; P1 is next. Existing build-0.3 final release verification remains outstanding.
+Follow [ENGINE_PLAN.md](../ENGINE_PLAN.md), P1 through P18, using [ENGINE_REWORK.md](../ENGINE_REWORK.md) as the contract. This replaces the ordering above and retires per-attack quick maths as the long-term combat model. Planning and P1 character/equipment sheet complete; P2 spatial inventory domain is next. Existing build-0.3 final release verification remains outstanding.
+
+- [ ] Owner-added merchant progression: maths purchases for equipment/cosmetics, white/blue/gold challenge tiers, long tricky gold tasks, NPC buying/selling, then green sets/synergy. Detailed delivery P16a–P16c in ENGINE_PLAN.

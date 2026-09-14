@@ -249,14 +249,65 @@ export function freshRpg(classId: ClassId = 'warden', avatarId = '7'): RpgState 
   };
 }
 export function combatStats(s: RpgState) {
+  const breakdown = statBreakdown(s);
+  return {
+    level: breakdown.level,
+    attack: breakdown.attack.total,
+    defence: breakdown.defence.total,
+    maxHp: breakdown.maxHp,
+  };
+}
+export type StatBreakdown = {
+  level: number;
+  xpIntoLevel: number;
+  xpForNextLevel: number;
+  attack: { base: number; level: number; equipment: number; total: number };
+  defence: { base: number; equipment: number; total: number };
+  maxHp: number;
+};
+/** All displayed character-sheet values derive from rules that combat actually uses. */
+export function statBreakdown(s: RpgState): StatBreakdown {
   const level = Math.min(100, 1 + Math.floor(s.xp / 120));
   const equipped = s.inventory.filter((i) => s.equipment[i.slot] === i.id);
+  const baseAttack = CLASSES[s.classId].attack;
+  const levelAttack = (level - 1) * 2;
+  const equipmentAttack = equipped.reduce((n, i) => n + i.attack, 0);
+  const baseDefence = CLASSES[s.classId].defence;
+  const equipmentDefence = equipped.reduce((n, i) => n + i.defence, 0);
   return {
     level,
-    attack:
-      CLASSES[s.classId].attack + (level - 1) * 2 + equipped.reduce((n, i) => n + i.attack, 0),
-    defence: CLASSES[s.classId].defence + equipped.reduce((n, i) => n + i.defence, 0),
+    xpIntoLevel: level === 100 ? 120 : s.xp % 120,
+    xpForNextLevel: level === 100 ? 0 : 120,
+    attack: {
+      base: baseAttack,
+      level: levelAttack,
+      equipment: equipmentAttack,
+      total: baseAttack + levelAttack + equipmentAttack,
+    },
+    defence: {
+      base: baseDefence,
+      equipment: equipmentDefence,
+      total: baseDefence + equipmentDefence,
+    },
     maxHp: CLASSES[s.classId].maxHp + (level - 1) * 8,
+  };
+}
+export type EquipmentPreview = {
+  item: Item;
+  replaced: Item | null;
+  current: ReturnType<typeof combatStats>;
+  next: ReturnType<typeof combatStats>;
+};
+/** Preview uses the same atomic equipment transition as the eventual equip action. */
+export function equipmentPreview(s: RpgState, itemId: string): EquipmentPreview | null {
+  const item = s.inventory.find((candidate) => candidate.id === itemId);
+  if (!item) return null;
+  const replacedId = s.equipment[item.slot];
+  return {
+    item,
+    replaced: s.inventory.find((candidate) => candidate.id === replacedId) ?? null,
+    current: combatStats(s),
+    next: combatStats({ ...s, equipment: { ...s.equipment, [item.slot]: item.id } }),
   };
 }
 export function questProgress(s: RpgState) {
@@ -351,6 +402,18 @@ export function equipItem(s: RpgState, itemId: string): RpgState {
     ...s,
     equipment: { ...s.equipment, [item.slot]: item.id },
     lastReward: `${item.name} equipped.`,
+  };
+}
+/** Unequipping only clears a slot: the item remains in the carried legacy inventory. */
+export function unequipItem(s: RpgState, slot: ItemSlot): RpgState {
+  const itemId = s.equipment[slot];
+  if (!itemId) return s;
+  const item = s.inventory.find((candidate) => candidate.id === itemId);
+  if (!item) return s;
+  return {
+    ...s,
+    equipment: { ...s.equipment, [slot]: null },
+    lastReward: `${item.name} returned to your pack.`,
   };
 }
 export function usePotion(s: RpgState): RpgState {

@@ -1,33 +1,29 @@
 # Current state
 
-Updated 2026-09-13. **Development build 0.3: combat, equipment and authored world increment. Owner acceptance remains pending.**
+Updated 13 September 2026. Development build 0.3 plus verified engine-plan P1. Owner acceptance remains pending; the larger redesign is not implemented yet.
 
-## Latest increment
+## Latest verified increment
 
-Resumed existing uncommitted combat/equipment work rather than discarding it. Integrated close comparison maths, proactive enemy wards, explicit armour mitigation, illustrated inventory/loot and prominent Return to Haven. Removed duplicate decorative guardian and improved action effects. World now includes a river crossing with bounded far-bank access, pirate outpost and guardian sanctuary; these are authored scenery, not additional quests or a new biome.
+P1 character/equipment sheet shows level/XP progress, current/max health and actual base/level/equipment stat contributions. Item preview shows attack and defence together. Equip/unequip is atomic, retains every item and survives reload. Empty slots explain their purpose; pause is visible; keyboard controls and a sticky close button support scrolling. Still three equipment categories and list-backed ownership, not a spatial backpack.
 
-Existing menu → character creation → Haven → wilds, six portraits/procedural hero silhouettes, three classes, five enemies, guaranteed loot, equipment stats, XP/gold, quest reward, per-hero saves and parent journal remain implemented. The clickable `Launch Fractions Fighter.command` rebuilds and opens the current version.
+Superseding direction is in ENGINE_REWORK.md and ordered work in ENGINE_PLAN.md. Ordinary stamina/ammo/mana combat, moving enemies, new defence maths, objects and NPC quest interactions remain planned. Merchant addition is documented: maths purchases for equipment/cosmetics, white/blue/gold complexity, long tricky gold tasks, buying/selling NPC and later green synergy sets. Current rarity/combat still use legacy rules.
 
-## Behaviour and validation
+## Validation
 
-- Enemies within six world units telegraph after 4.5 seconds and request a ward after 8 seconds. Move away to evade. Correct blocks; wrong/expired ward applies displayed attack minus armour, with a maximum-hit safety cap. Defeat rescues the hero to Haven without losing loot.
-- Questions, menus, loot inspection and hidden tabs suspend enemy scheduling. Quick timing is optional, with hints/Let me think. Focus and ritual remain untimed. Attack-rune expiry does not damage health; defence-rune expiry does.
-- Close non-equal comparison maximum gaps: Explorer 1/20, Adventurer 1/30, Pathfinder 1/50. Unlike denominators and fraction/percentage representations; 25/20/15 second optional timers. Independent prompt-derived exact maths review passed (23 focused tests).
-- Root real-browser inspection: new Mooncat hero → Haven → wilds, enemy ward correct block, illustrated inventory, laptop layout, pointer movement out of telegraph range toward river. Fixed return/toast overlap with inventory, and quest/trail card overlap at short laptop heights.
-- Full final unit/build/browser results are being collected in the current session note; do not infer release verification from the above targeted checks.
+- Final `npm run check`: 71 tests across 10 files, strict TypeScript and production build pass on local Node 25.8.1. CI uses pinned Node 22.
+- Full local `FF_PREVIEW_PORT=4175 npm run test:e2e`: 5 passed in 2.5 minutes. Covers expedition, wrong answer/hint, loot/equip, quest reward, next expedition, journal/export/import, proactive defence/protected maths, heroes/settings, keyboard, compact layout and inventory unequip/reload/re-equip.
+- Root real-browser inventory review at 1280×720: verified attack 12 → 10, item retained, keyboard re-equip and final rendered sheet. Independent Terra code review found stale cross-hero selection; fixed.
+- CI failure e1596d1 / run 34785024119 diagnosed: Haven return overlaid loot Inspect; timer test assumed Explorer while default was Adventurer. Fixed overlay spacing and explicit test difficulty. Fresh pushed-run status pending below.
+- Build stalling traced to dataless macOS public assets; restored identical tracked blobs, no asset diff. Large Three.js chunk warning remains.
 
-## Git / hosting
+## Existing gameplay
 
-Authorised remote: https://github.com/AlxSviridov/fractions_fighter.git . Previous checkpoint `0d75013` on main. This increment is pending final checks and checkpoint. Dedicated Firebase project: `fractions-fighter-verdant`; no Hosting deployment claimed. No billing enabled. Local runtime is Node 25; Node 22 is pinned for CI/new devices but not installed at the inspected local locations.
+Menu/create/load → safe Haven → compact five-enemy wilds, three classes/six portraits, click navigation, old quick/focus/ritual maths, proactive stationary enemy wards, guaranteed loot/equipment/XP/gold, quest reward and per-hero learning journal are implemented. River/far bank, pirate outpost and sanctuary remain mostly authored scenery. No real child playtest or full curriculum claim.
+
+## Git and deployment
+
+Authorised repo: AlxSviridov/fractions_fighter. Planning/inherited-work checkpoint e1596d1 pushed. P1/CI-fix checkpoint is being committed and pushed; verify fresh Actions before claiming CI fixed. Firebase project fractions-fighter-verdant remains authorised; no Hosting deployment this session. No billing enabled.
 
 ## Exact next action
 
-Complete final browser suite including full expedition, per-hero save/export/import, settings/keyboard/compact UI and proactive defence. Format, record evidence, commit code and memory together, push and inspect CI. Then choose the next meaningful gameplay increment from BACKLOG.
-
-## Honest remaining scope
-
-Still a compact five-enemy encounter map. Far-bank beacon and legacy shrines are scenery; no secret-chest reward or authored side quest yet. All enemies currently share one ward pattern. Focus/ritual can resolve early enemies with one answer. Finite comparison pool risks repetition. Gold has no working shop/forge sink. Full character/body/hair/accessory editing, authored 3D animation, curriculum breadth and stepwise long division are outstanding. Exact 2D-to-3D avatar conversion, infinite streaming, cloud parent profiles and commercial-quality engagement are not claimed. Real child playtesting is required; simulated review is not a child trial.
-
-## Superseding planning checkpoint — 13 September 2026
-
-ENGINE_REWORK.md defines the new resource-combat/world-interaction contract; ENGINE_PLAN.md defines 18 bite-size increments. Current behaviour remains the inherited build 0.3. Preserve all inherited modified/untracked code and reviews in this explicitly unfinished checkpoint; no new validation or deployment is claimed here. Exact next action: P1 character/equipment sheet, relevant unit/build and real-browser inspection, then commit/push. Earlier final-suite work remains unverified.
+Finish the P1 push and confirm fresh GitHub Actions. Then P2: spatial inventory domain, 10×4 placements, footprints, conservation, slot compatibility and migration with Haven overflow stash. P3 implements its pointer/keyboard UI. Follow ENGINE_PLAN rather than jumping into all combat channels together.

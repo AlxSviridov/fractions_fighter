@@ -101,7 +101,7 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
   await expect(page.locator('.loot-notification')).toContainText('Tidefang');
   await expect(page.locator('.loot-notification')).toContainText('Attack 12 → 14');
   await page.getByRole('button', { name: 'Inspect', exact: true }).click();
-  await expect(page.locator('.upgrade-comparison')).toHaveText('Total attack: 12 → 14');
+  await expect(page.locator('.upgrade-comparison')).toContainText('Total attack: 12 → 14');
   await page.getByRole('button', { name: 'Equip Tidefang', exact: true }).click();
   await expect(page.locator('.inventory-stats')).toContainText('14 Attack');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
@@ -161,6 +161,12 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
 test('an expired quick rune causes no damage and remains solvable', async ({ page }) => {
   await page.goto('/');
   await createHero(page, 'Timer Tester');
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page
+    .locator('.difficulty-list')
+    .getByRole('button', { name: /Explorer/ })
+    .click();
+  await page.getByRole('button', { name: 'Save & return' }).click();
   await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
   await approach(page, 'Bramble Prowler');
   await cast(page, 'Quick strike');
@@ -273,5 +279,37 @@ test('separate heroes, settings persistence, keyboard controls, import rejection
   await expect(page.getByRole('button', { name: 'Close dialog' })).toBeInViewport();
   await page.screenshot({ path: 'test-results/compact-settings.png' });
   await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+});
+
+test('character sheet unequips safely, restores gear and persists the result', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto('/');
+  await createHero(page, 'Equipment Tester');
+  await page.keyboard.press('i');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('World paused');
+  await expect(page.locator('.inventory-stats')).toContainText('12 Attack');
+  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Unequip Wayfarer blade', exact: true }).click();
+  await expect(page.locator('.inventory-stats')).toContainText('10 Attack');
+  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await expect(
+    page.getByRole('button', { name: 'Equip Wayfarer blade', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: 'test-results/character-sheet-1280.png' });
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('button', { name: /Continue adventure Equipment Tester/ }).click();
+  await page.keyboard.press('i');
+  await expect(page.locator('.inventory-stats')).toContainText('10 Attack');
+  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Equip Wayfarer blade', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.inventory-stats')).toContainText('12 Attack');
+  await expect(page.locator('.pack-item')).toHaveCount(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('button', { name: 'Close dialog', exact: true })).toBeInViewport();
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
 });

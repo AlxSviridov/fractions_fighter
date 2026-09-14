@@ -30,13 +30,13 @@ Click an enemy to approach until the selected action is in range, then act once.
 
 All classes can learn melee, ranged and spells; class gives starting preferences, not permanent curriculum lockout. Begin with small full reserves so the first encounter is immediately playable. Show the exact reward before choosing a question. No passive stamina/mana restoration while standing still; returning to Haven may safely refill all basic reserves, with no XP for refills.
 
-| Channel | Ordinary action | Untimed preparation | Starting balance hypothesis |
-| --- | --- | --- | --- |
-| Melee | Spend stamina on a committed hit | Multiplication of three-digit by two-digit numbers or exact division of similar complexity | 100 stamina, 20 per hit; correct preparation restores to 100 |
-| Bow | Spend one selected arrow on release | Standard arithmetic creates normal arrows; harder multi-step arithmetic creates elemental arrows | Normal quiver cap 20, refill +10; elemental cap 10 each, refill +3 |
-| Simple spell | Spend mana to cast without a question | Geometry with labelled diagram and text equivalent refills mana | 100 mana, basic bolt costs 20; correct preparation restores to 100 |
-| Powerful spell | Requires enough mana and an additional hard question | Mixed fractions, ratio, percentages, arithmetic or geometry; no timer | 40 mana and correct ritual; damage/utility stronger than basic bolt |
-| Defence | One quick question for one incoming hit | Comparisons or multiplication/division within 12 × 12 | Correct blocks; wrong/expiry takes armour-mitigated damage |
+| Channel        | Ordinary action                                      | Untimed preparation                                                                              | Starting balance hypothesis                                         |
+| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Melee          | Spend stamina on a committed hit                     | Multiplication of three-digit by two-digit numbers or exact division of similar complexity       | 100 stamina, 20 per hit; correct preparation restores to 100        |
+| Bow            | Spend one selected arrow on release                  | Standard arithmetic creates normal arrows; harder multi-step arithmetic creates elemental arrows | Normal quiver cap 20, refill +10; elemental cap 10 each, refill +3  |
+| Simple spell   | Spend mana to cast without a question                | Geometry with labelled diagram and text equivalent refills mana                                  | 100 mana, basic bolt costs 20; correct preparation restores to 100  |
+| Powerful spell | Requires enough mana and an additional hard question | Mixed fractions, ratio, percentages, arithmetic or geometry; no timer                            | 40 mana and correct ritual; damage/utility stronger than basic bolt |
+| Defence        | One quick question for one incoming hit              | Comparisons or multiplication/division within 12 × 12                                            | Correct blocks; wrong/expiry takes armour-mitigated damage          |
 
 Arithmetic must have constructed exact answers: e.g. 324 × 27 = 8,748, or 8,748 ÷ 27 = 324. Explorer scaffolds the same operation; Adventurer uses three-by-two digits; Pathfinder adds a meaningful second step. Hints include decomposition and long-division working. Ordinary recharge mistakes allow retry and never damage health. Answered/hinted attempts still enter the learning report, but no XP/loot can be farmed by repeatedly recharging.
 
@@ -71,6 +71,27 @@ NPC: overhead ! for available quest, muted marker for active incomplete quest, ?
 5. Return to Mira (? marker), explicit turn-in, one reward, journal completion. Next expedition resets only repeatable encounter/object IDs; story unlocks and inventory persist.
 
 Track quest states available → accepted → objective-complete → rewarded, with named objective counters and event-derived progress. Avoid boolean soup or inferring acceptance from kills. Define migration for the legacy auto-active quest: preserve kills/reward, map to accepted/complete/rewarded without giving rewards twice.
+
+## 7. Merchant, maths purchases and rarity (owner addition)
+
+Owner addition during implementation: buying equipment and cosmetic items by solving maths; white → blue → gold rarity, later green sets with synergy. More epic items require more complex maths; gold requires a very tricky, long task. Add an NPC who buys and sells items. This direction is recorded now; merchant implementation is a later increment.
+
+**Merchant Nia, Haven's quartermaster**, offers Buy / Sell / Cosmetics / Leave dialogue choices. Preview real item art, slot, full stat changes, rarity label, maths challenge tier and any gold cost before committing. Purchases require the displayed maths; baseline training gear and introductory cosmetics have maths-only offers so an empty wallet never prevents learning. Advanced offers may also cost earned gold (initial balance proposal), providing a use for combat rewards and sale proceeds. The owner-mandated part is maths-based purchasing; precise gold prices remain balance hypotheses.
+
+| Tier                | Identity                                                 | Purchase challenge                                                                                 | Reward design                                                            |
+| ------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| White / common      | Useful standard equipment and simple cosmetic variants   | One substantial untimed operation matched to the selected difficulty                               | Reliable starter/sidegrade, accessible first purchase                    |
+| Blue / enchanted    | One meaningful bonus or more elaborate cosmetic          | Untimed multi-step task combining two operations or applying geometry/percentages                  | Clear benefit or tradeoff, never an unexplained stat inflation           |
+| Gold / epic         | Distinctive high-value equipment or prestigious cosmetic | Long, especially tricky untimed multi-stage problem, with a working area and stepwise explanations | A memorable earned item; show the complete challenge and reward up front |
+| Green / set (later) | Named collection with visible piece count                | Later reviewed challenge design                                                                    | Explicit two/three-piece synergies, calculated by the same stats engine  |
+
+Rarity complexity is separate from manual difficulty: gold remains a long reasoning challenge in every band, with scaffolding and appropriately bounded operands. Do not make gold a timed task or merely inflate digits. Example gold structure: determine a fraction of expedition supplies, calculate a discounted cost, then justify a final allocation; prompts must contain enough information and use exact independently reviewed answers. Hints and retries are permitted; assisted learning is recorded honestly without removing the promised item. Cosmetics never increase combat stats.
+
+Select offer → review item/challenge → begin paused maths → solve → commit one purchase. Snapshot an offer ID/revision, reward, price and challenge. Recheck funds and storage capacity at commit; spend gold and grant the item atomically once. If the pack is full, deliver to available Haven stash space or retain a claimable merchant parcel; never charge for a lost item. Cancel or a wrong answer charges nothing. A reload may restart uncompleted maths but cannot duplicate a completed reward. Multi-stage gold progress/resume must retain hints and attempts if persisted, not reset them into independent success.
+
+Sell: choose an owned unequipped item, inspect the gold quote, explicitly sell; item removal and gold credit are one transition. Equipped/favourite items require unequipping/unmarking first. Retain a small buyback list at the original sale price until leaving Haven, shown before selling. Never auto-sell pack overflow. Sale value is below purchase gold price, with no profitable buy/sell loop; maths-only purchases are one-time offers or have zero resale value. Cosmetics are permanent unlocks, not repeatedly resellable inventory objects. Stock uses deterministic IDs, finite per-expedition quantities and clear refresh rules; no paid currencies or paid services.
+
+Migration maps current common → white, uncommon/rare → blue, legendary → gold while preserving IDs, stats and ownership. Existing artwork/colours remain transitional until merchant/rarity work lands. No green items or synergy bonuses are shown as working before their rules exist.
 
 ## Verification and delivery
 

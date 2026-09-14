@@ -2541,3 +2541,13 @@
 .ff-toast {
   pointer-events: none;
 }
+
+/* Loot actions sit above the persistent return control, never behind it. */
+.ff-game .loot-notification {
+  bottom: 245px;
+}
+@media (max-width: 580px) {
+  .ff-game .loot-notification {
+    bottom: 185px;
+  }
+}

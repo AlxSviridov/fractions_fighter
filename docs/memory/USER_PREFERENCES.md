@@ -29,3 +29,5 @@ Owner requires Diablo-like inventory with loot art, close/nontrivial comparisons
 ## Resource combat redesign, 13 September 2026
 
 Owner requests a close Diablo II UI/UX reference and step-by-step engine improvements. Ordinary melee spends stamina; bow spends arrows, with harder maths for fire/frost ammunition; spells spend mana, geometry recharges it, and powerful casts also require harder mixed-topic maths. Recharge/cast maths pauses the entire world. Only quick defence maths is timed. Require moving/attacking enemies, interactive altars/chests, villagers with RPG quest markers/dialogue, and spell-required quests. Full developed contract: ../ENGINE_REWORK.md; ordered delivery: ../ENGINE_PLAN.md. Document and commit the plan before starting implementation.
+
+Owner addition: equipment and cosmetics can be purchased by solving maths through a buying/selling NPC. Rarity is white → blue → gold, with harder maths for higher tiers; gold requires a long, especially tricky task. Green set items with synergy come later. See ENGINE_REWORK merchant section and P16a–P16c; implementation not yet claimed.

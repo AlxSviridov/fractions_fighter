@@ -5,7 +5,7 @@
 ## Foundation and inventory first
 
 - [x] P0. Document superseding owner requirements, gameplay rules, architecture and this plan; preserve inherited unfinished work in a labelled checkpoint.
-- [ ] P1. Character/equipment sheet: real stat breakdown, full item comparison, equip/unequip, selection/focus and accessible paper-doll layout. Test stat changes and item conservation; inspect laptop UI. Keep legacy inventory storage intact.
+- [x] P1. Character/equipment sheet: real stat breakdown, full item comparison, equip/unequip, selection/focus and accessible paper-doll layout. Test stat changes and item conservation; inspect laptop UI. Keep legacy inventory storage intact.
 - [ ] P2. Spatial inventory domain: 10 × 4 placements, item footprints, move/swap/cancel, separate equipped ownership, capacity and Haven stash; migrate legacy saves without item loss. Pure tests for overlaps, invalid slots and conservation.
 - [ ] P3. Spatial inventory UI: pointer and keyboard placement, hover/focus tooltip, full-pack recovery, stash. Add equipment slots only with real loot and rules. Browser tests for reload and small screens.
 - [ ] P4. Persistent combat HUD: health/mana globes, stamina, ammunition, action selection and belt. Resource fields/migration introduced with tested limits; no fake functioning controls.
@@ -30,6 +30,9 @@
 - [ ] P14. Working recharge altar and village well; visible effect, pause, bounded blessing and persisted activation where appropriate.
 - [ ] P15. Typed quest state/objectives and migration; interactive Mira with !/? markers, acceptance/dialogue/journal and once-only turn-in.
 - [ ] P16. Ivo's spell lesson and sealed-door quest: guaranteed focus for every class, mana refill, spell-only opening, persistent door and reachable route.
+- [ ] P16a. Merchant Nia and rarity migration: white/blue/gold labels, buy/sell dialogue, deterministic stock and full previews; preserve existing loot IDs/stats. Green sets remain later.
+- [ ] P16b. Maths purchases for equipment/cosmetics: white standard, blue multi-step, gold long/tricky untimed challenge; independent prompt review, atomic purchase, capacity recovery and permanent cosmetic unlocks.
+- [ ] P16c. Selling/buyback and economy tests: protected equipped items, atomic gold/item transfers, no resale farming, finite offers, reload/idempotency and merchant browser journey.
 - [ ] P17. Raider/lookout/guardian attack distinctions, authored encounter pacing, loot and resource balance. Playtest ordinary action bursts versus thinking interruptions.
 - [ ] P18. Release pass: full expedition, all resources, defence, objects, quests, save/export/import, parent evidence, accessibility/reduced motion. Full check + e2e, critical playtest report, owner review; then verified Firebase release/live smoke.
 
@@ -38,3 +41,7 @@
 Baseline at planning time: main at 0d75013 plus inherited uncommitted build-0.3 combat/equipment/world work. Preserve it; do not claim inherited final browser verification. Three slots and list-backed inventory currently work; enemies are stationary and attacks use old quick/focus/ritual questions. Existing tests preserve that baseline until the corresponding increment intentionally replaces it. Node 22 is pinned; local runtime previously reported Node 25. No deployment belongs to the planning checkpoint.
 
 First execution target: P1 only, a visible useful inventory/stats improvement without coupling it to an unfinished combat rewrite. Subsequent sessions take the next unchecked increment. Update this file when actual evidence changes.
+
+## Later merchant extension
+
+- [ ] Green set items: named pieces, visible collection progress and tested two/three-piece synergy in the shared stat engine.

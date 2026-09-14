@@ -25,3 +25,21 @@ Math tests use exact integer / BigInt arithmetic where floating-point noise coul
 Use original questions and pseudonymous local profiles. Ask the child to explain what the game asks them to do, watch without coaching for the first minute, then observe where maths interrupts the fantasy or movement confuses them. At 10 and 20 minutes, offer a natural stopping point. Record observations rather than claiming an engagement score.
 
 Questions for the owner: Did the child voluntarily pursue the next discovery? Could they explain one method? Did a wrong answer feel safe? Was the reward worth the effort? Which topic needs more variety? Use results to choose the next vertical feature, especially click combat and more satisfying spell effects.
+
+## Explicit local preview port
+
+Default browser tests use port 4173. If another preview already owns it, start this
+repository's preview on a free port and run `FF_PREVIEW_PORT=4175 npm run test:e2e`
+(with the actual selected port). The managed server uses `--strictPort` so it cannot
+silently serve a different port. Test saves are isolated browser contexts.
+
+Inventory regression covers unequip/re-equip, actual stats, item conservation,
+reload and compact layout. Timer tests explicitly select their difficulty; do not
+assume a developer's saved settings. Loot Inspect must pass ordinary pointer hit
+testing: never use forced clicks to conceal overlapping game controls.
+
+macOS can offload Desktop project files as `dataless` placeholders. If a build
+stalls reading public assets, inspect file flags and restore exact tracked bytes
+from Git after checking for local modifications. Do not substitute blank assets
+or commit placeholder content. The September 13 validation restored seven public
+assets byte-for-byte; Git reported no asset changes.

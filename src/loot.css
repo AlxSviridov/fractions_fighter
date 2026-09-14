@@ -28,6 +28,112 @@
   flex: 0 0 auto;
 }
 
+.ff-game .world-paused {
+  display: inline-flex;
+  margin: 0 0 4px;
+  padding: 4px 7px;
+  border: 1px solid #d8b86175;
+  color: #f1d584;
+  background: #1b211edd;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.ff-game .character-sheet {
+  margin: 0 0 20px;
+  padding: 13px;
+  border: 1px solid #b4975f77;
+  background: linear-gradient(145deg, #323c35, #18211d 65%, #101513);
+  box-shadow:
+    inset 0 0 0 3px #101412,
+    inset 0 0 18px #0007;
+}
+
+.ff-game .character-sheet header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ff-game .character-sheet header small {
+  color: #bcae83;
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.ff-game .character-sheet h2 {
+  margin: 2px 0 0;
+  color: #ead7a3;
+  font-size: 18px;
+}
+
+.ff-game .character-sheet header > strong {
+  color: #efb7a0;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.ff-game .sheet-xp {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 0;
+  padding: 6px 8px;
+  overflow: hidden;
+  color: #e2d4ad;
+  background: #0d1210;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+}
+
+.ff-game .sheet-xp i {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: #d2a852;
+}
+
+.ff-game .sheet-xp strong {
+  text-align: right;
+  font-size: 9px;
+}
+
+.ff-game .stat-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.ff-game .stat-breakdown > div {
+  padding: 8px;
+  border-left: 2px solid #b99a5a;
+  background: #111814b8;
+}
+
+.ff-game .stat-breakdown dt {
+  color: #d7b56c;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+}
+
+.ff-game .stat-breakdown dd {
+  margin: 3px 0 0;
+  color: #cfc7ad;
+  font-size: 13px;
+}
+
+.ff-game .stat-breakdown dd strong {
+  color: #f0d78d;
+}
+
 .ff-game .inventory-layout {
   grid-template-columns: minmax(180px, 0.72fr) minmax(0, 1.55fr);
   align-items: start;
@@ -91,7 +197,8 @@
 }
 
 .ff-game .equip-slot:hover:not(:disabled),
-.ff-game .equip-slot:focus-visible {
+.ff-game .equip-slot:focus-visible,
+.ff-game .equip-slot.selected {
   background: linear-gradient(90deg, #202c25, #475447);
   outline-color: var(--rarity, #e6ce85);
 }
@@ -231,12 +338,32 @@
   background: #151d19a8;
 }
 
+.ff-game .upgrade-comparison {
+  display: block;
+  margin-top: 8px;
+  color: #e8d58f;
+  line-height: 1.4;
+}
+
+.ff-game .upgrade-comparison em {
+  color: #bdb486;
+  font-style: normal;
+}
+
+.ff-game .empty-slot-detail {
+  border-color: #6e775f;
+}
+
 @media (max-width: 720px) {
   .ff-game .inventory-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .ff-game .inventory-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ff-game .stat-breakdown {
     grid-template-columns: 1fr;
   }
 
@@ -265,4 +392,14 @@
   .ff-game .pack-item {
     min-height: 94px;
   }
+}
+
+/* Keep an exit reachable while the equipment sheet scrolls on short screens. */
+.ff-game .modal:has(.character-sheet) .modal-close {
+  position: sticky;
+  top: 0;
+  float: right;
+  margin: -12px -12px 0 0;
+  z-index: 2;
+  background: #17211d;
 }

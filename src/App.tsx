@@ -47,12 +47,15 @@ import {
   claimQuest,
   CLASSES,
   combatStats,
+  equipmentPreview,
   enterZone,
   equipItem,
   freshRpg,
   QUEST,
   questProgress,
   STORY,
+  statBreakdown,
+  unequipItem,
   usePotion,
 } from './game/rpg';
 import type { ClassId, CombatAction, Item, ItemSlot, RpgState, Zone } from './game/rpg';
@@ -137,7 +140,8 @@ export default function App() {
     [cast, setCast] = useState<Cast | null>(null),
     [toast, setToast] = useState(''),
     [loot, setLoot] = useState<Item | null>(null),
-    [selectedItem, setSelectedItem] = useState<string | null>(null);
+    [selectedItem, setSelectedItem] = useState<string | null>(null),
+    [selectedSlot, setSelectedSlot] = useState<ItemSlot | null>(null);
   const [position, setPosition] = useState([0, 7]),
     [readySeed, setReadySeed] = useState<number | null>(null),
     [walkTarget, setWalkTarget] = useState<string | null>(null);
@@ -301,6 +305,8 @@ export default function App() {
   }
   function createHero() {
     setLastQuestion(null);
+    setSelectedItem(null);
+    setSelectedSlot(null);
     try {
       archiveHero(save);
       const next = {
@@ -325,6 +331,8 @@ export default function App() {
   }
   function loadHero(next: Save) {
     setLastQuestion(null);
+    setSelectedItem(null);
+    setSelectedSlot(null);
     const migrated = { ...next, rpg: next.rpg ?? { ...freshRpg(), xp: next.xp } };
     setSave(migrated);
     setBlocked(false);
@@ -461,8 +469,16 @@ export default function App() {
     }));
   }
   function doEquip(item: Item) {
+    setSelectedSlot(null);
     const next = equipItem(rpg, item.id);
     updateRpg(next);
+    notify(next.lastReward);
+    sound(save.settings.sound);
+  }
+  function doUnequip(slot: ItemSlot) {
+    const next = unequipItem(rpg, slot);
+    updateRpg(next);
+    setSelectedSlot(null);
     notify(next.lastReward);
     sound(save.settings.sound);
   }
@@ -487,6 +503,8 @@ export default function App() {
   }
   const activeItem =
     rpg.inventory.find((i) => i.id === selectedItem) ?? rpg.inventory[rpg.inventory.length - 1];
+  const activePreview = equipmentPreview(rpg, activeItem.id);
+  const sheet = statBreakdown(rpg);
   return (
     <main
       className={`game ff-game ${screen !== 'play' ? 'in-menu' : ''} ${save.settings.reducedMotion ? 'reduced-motion' : ''}`}
@@ -1083,6 +1101,9 @@ export default function App() {
           onClose={closePanel}
           wide
         >
+          <p className="world-paused" role="status">
+            World paused · Manage your gear safely.
+          </p>
           <div className="inventory-stats">
             <span>
               <Swords size={16} />
@@ -1101,6 +1122,46 @@ export default function App() {
               {rpg.gold} Gold
             </span>
           </div>
+          <section className="character-sheet" aria-label="Character statistics">
+            <header>
+              <div>
+                <small>CHARACTER</small>
+                <h2>
+                  Level {sheet.level} {CLASSES[rpg.classId].name}
+                </h2>
+              </div>
+              <strong>
+                {rpg.hp} / {stats.maxHp} health
+              </strong>
+            </header>
+            <div className="sheet-xp" aria-label={`Experience: ${rpg.xp} XP`}>
+              <span>XP {rpg.xp}</span>
+              {sheet.level < 100 ? (
+                <strong>
+                  {sheet.xpIntoLevel} / {sheet.xpForNextLevel} to level {sheet.level + 1}
+                </strong>
+              ) : (
+                <strong>Maximum level reached</strong>
+              )}
+              <i style={{ width: `${(sheet.xpIntoLevel / 120) * 100}%` }} />
+            </div>
+            <dl className="stat-breakdown">
+              <div>
+                <dt>Attack</dt>
+                <dd>
+                  {sheet.attack.base} base + {sheet.attack.level} level + {sheet.attack.equipment}{' '}
+                  equipment = <strong>{sheet.attack.total}</strong>
+                </dd>
+              </div>
+              <div>
+                <dt>Defence</dt>
+                <dd>
+                  {sheet.defence.base} base + {sheet.defence.equipment} equipment ={' '}
+                  <strong>{sheet.defence.total}</strong>
+                </dd>
+              </div>
+            </dl>
+          </section>
           <div className="inventory-layout">
             <div className="equipped-panel">
               <img src={portrait(rpg.avatarId)} alt={save.profile.name} />
@@ -1110,8 +1171,12 @@ export default function App() {
                 return (
                   <button
                     key={slot}
-                    className={`equip-slot ${item ? 'rarity-' + item.rarity : ''}`}
-                    onClick={() => item && setSelectedItem(item.id)}
+                    className={`equip-slot ${item ? 'rarity-' + item.rarity : ''} ${selectedSlot === slot ? 'selected' : ''}`}
+                    onClick={() => {
+                      setSelectedSlot(slot);
+                      setSelectedItem(item?.id ?? null);
+                    }}
+                    aria-pressed={selectedSlot === slot}
                   >
                     {item ? <LootArt item={item} size={38} /> : itemIcon(slot, 19)}
                     <span>
@@ -1131,7 +1196,10 @@ export default function App() {
                   <button
                     key={item.id}
                     className={`pack-item rarity-${item.rarity} ${activeItem.id === item.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedItem(item.id)}
+                    onClick={() => {
+                      setSelectedItem(item.id);
+                      setSelectedSlot(null);
+                    }}
                     aria-label={`Inspect ${item.name}`}
                   >
                     <LootArt item={item} size={48} />
@@ -1140,35 +1208,50 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <article className={`item-detail rarity-${activeItem.rarity}`}>
-                <span>
-                  {activeItem.rarity.toUpperCase()} {activeItem.slot.toUpperCase()}
-                </span>
-                <h3>{activeItem.name}</h3>
-                <p>{activeItem.description}</p>
-                <div>
-                  {activeItem.attack > 0 && <strong>+{activeItem.attack} attack</strong>}
-                  {activeItem.defence > 0 && <strong>+{activeItem.defence} defence</strong>}
-                  <small>Affinity: {TOPICS[activeItem.topic]}</small>
-                  {rpg.equipment[activeItem.slot] !== activeItem.id && (
-                    <small className="upgrade-comparison">
-                      {activeItem.slot === 'armour'
-                        ? `Total defence: ${stats.defence} → ${stats.defence + activeItem.defence - (rpg.inventory.find((i) => i.id === rpg.equipment.armour)?.defence ?? 0)}`
-                        : `Total attack: ${stats.attack} → ${stats.attack + activeItem.attack - (rpg.inventory.find((i) => i.id === rpg.equipment[activeItem.slot])?.attack ?? 0)}`}
-                    </small>
+              {selectedSlot && !rpg.equipment[selectedSlot] ? (
+                <article className="item-detail empty-slot-detail">
+                  <span>{selectedSlot.toUpperCase()} SLOT</span>
+                  <h3>Empty {selectedSlot} slot</h3>
+                  <p>
+                    Choose a {selectedSlot} from your pack to equip it. An empty slot grants no item
+                    bonuses.
+                  </p>
+                </article>
+              ) : (
+                <article className={`item-detail rarity-${activeItem.rarity}`}>
+                  <span>
+                    {activeItem.rarity.toUpperCase()} {activeItem.slot.toUpperCase()}
+                  </span>
+                  <h3>{activeItem.name}</h3>
+                  <p>{activeItem.description}</p>
+                  <div>
+                    {activeItem.attack > 0 && <strong>+{activeItem.attack} attack</strong>}
+                    {activeItem.defence > 0 && <strong>+{activeItem.defence} defence</strong>}
+                    <small>Affinity: {TOPICS[activeItem.topic]}</small>
+                    {activePreview && rpg.equipment[activeItem.slot] !== activeItem.id && (
+                      <small className="upgrade-comparison">
+                        Total attack: {activePreview.current.attack} → {activePreview.next.attack}
+                        <br />
+                        Total defence: {activePreview.current.defence} →{' '}
+                        {activePreview.next.defence}
+                        {activePreview.replaced && (
+                          <em> Replaces {activePreview.replaced.name}.</em>
+                        )}
+                      </small>
+                    )}
+                  </div>
+                  {rpg.equipment[activeItem.slot] === activeItem.id ? (
+                    <button className="secondary full" onClick={() => doUnequip(activeItem.slot)}>
+                      Unequip {activeItem.name}
+                    </button>
+                  ) : (
+                    <button className="primary full" onClick={() => doEquip(activeItem)}>
+                      Equip {activeItem.name}
+                      <Check size={15} />
+                    </button>
                   )}
-                </div>
-                <button
-                  className="primary full"
-                  disabled={rpg.equipment[activeItem.slot] === activeItem.id}
-                  onClick={() => doEquip(activeItem)}
-                >
-                  {rpg.equipment[activeItem.slot] === activeItem.id
-                    ? 'Equipped'
-                    : 'Equip ' + activeItem.name}
-                  <Check size={15} />
-                </button>
-              </article>
+                </article>
+              )}
             </div>
           </div>
         </Modal>
