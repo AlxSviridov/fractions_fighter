@@ -1,5 +1,7 @@
 /** Fractions Fighter: serialisable, renderer-independent adventure rules. */
 import type { Topic } from './math';
+import { reconcileInventory, validateInventoryLayout } from './inventory';
+import type { InventoryLayout } from './inventory';
 
 export type ClassId = 'warden' | 'ranger' | 'arcanist';
 export type Zone = 'village' | 'wilds';
@@ -40,6 +42,7 @@ export type RpgState = {
   gold: number;
   potions: number;
   inventory: Item[];
+  inventoryLayout: InventoryLayout;
   equipment: Record<ItemSlot, string | null>;
   enemies: Enemy[];
   defeated: number;
@@ -241,6 +244,7 @@ export function freshRpg(classId: ClassId = 'warden', avatarId = '7'): RpgState 
     gold: 0,
     potions: 3,
     inventory: [starter],
+    inventoryLayout: { version: 1, pack: {}, stash: [] },
     equipment: { weapon: starter.id, armour: null, relic: null },
     enemies: makeEnemies(1),
     defeated: 0,
@@ -387,6 +391,10 @@ export function attackEnemy(
     defeated: Math.min(1e9, s.defeated + 1),
     lastReward: `${enemy.name} ${enemy.kind === 'beast' ? 'retreats' : 'defeated'}! +${enemy.xp} XP · +${enemy.gold} gold · ${inventoryFull ? 'Pack full: treasure exchanged for 25 gold' : loot.name + ' found'}.`,
   };
+  next = {
+    ...next,
+    inventoryLayout: reconcileInventory(next.inventory, next.equipment, s.inventoryLayout),
+  };
   if (combatStats(next).level > stats.level)
     next = {
       ...next,
@@ -401,6 +409,11 @@ export function equipItem(s: RpgState, itemId: string): RpgState {
   return {
     ...s,
     equipment: { ...s.equipment, [item.slot]: item.id },
+    inventoryLayout: reconcileInventory(
+      s.inventory,
+      { ...s.equipment, [item.slot]: item.id },
+      s.inventoryLayout,
+    ),
     lastReward: `${item.name} equipped.`,
   };
 }
@@ -413,6 +426,11 @@ export function unequipItem(s: RpgState, slot: ItemSlot): RpgState {
   return {
     ...s,
     equipment: { ...s.equipment, [slot]: null },
+    inventoryLayout: reconcileInventory(
+      s.inventory,
+      { ...s.equipment, [slot]: null },
+      s.inventoryLayout,
+    ),
     lastReward: `${item.name} returned to your pack.`,
   };
 }
@@ -536,6 +554,10 @@ export function validateRpg(value: unknown): RpgState {
       return fail();
     equipment[slot] = id as string | null;
   }
+  const inventoryLayout =
+    value.inventoryLayout === undefined
+      ? reconcileInventory(inventory, equipment)
+      : validateInventoryLayout(value.inventoryLayout, inventory, equipment);
   const expected = makeEnemies(value.expedition as number);
   const enemies = value.enemies.map((raw, i) => {
     const e = expected[i];
@@ -558,6 +580,7 @@ export function validateRpg(value: unknown): RpgState {
     gold: value.gold as number,
     potions: value.potions as number,
     inventory,
+    inventoryLayout,
     equipment,
     enemies,
     defeated: value.defeated as number,

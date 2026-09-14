@@ -16,6 +16,7 @@
 
 `src/game/math.ts`: questions with topic, difficulty, prompt, valid answers and worked explanation; injected deterministic random source.
 `src/game/actionMath.ts`: action-tier questions (quick/focus/ritual), exact comparisons and reviewed explanations.
+`src/game/inventory.ts`: pure 10×4 placement, item footprints, atomic moves/swaps, strict layout validation and legacy overflow migration.
 `src/game/rpg.ts`: pure combat, equipment, enemy/quest rewards, levels and campaign validation.
 `src/game/profiles.ts`: hero archive and active save persistence; preflight validation and rollback on synchronous write failure.
 `src/game/state.ts`: typed serialisable state, rewards, encounter lifecycle, topic summaries; no browser or renderer imports.
@@ -47,3 +48,5 @@ Target 60 fps on a typical recent laptop; minimum 30 fps on the agreed low-spec 
 - Renderer reference: https://threejs.org/docs/pages/WebGLRenderer.html
 - Firebase Hosting: https://firebase.google.com/docs/hosting/quickstart
 - Firebase CLI: https://firebase.google.com/docs/cli
+
+Spatial inventory migration is implemented as an additive `RpgState.inventoryLayout` field; see decision 0004. Owned items remain canonical, equipment is separate by ID, and pack/stash cover every unequipped item exactly once. Current list UI remains until P3.

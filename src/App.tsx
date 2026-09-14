@@ -203,7 +203,6 @@ export default function App() {
       if (elapsed >= 8000) {
         elapsed = 0;
         setThreat(null);
-        setSelectedEnemy(nearby.id);
         const key = `${current.slotId ?? 'legacy'}:defence:${crypto.randomUUID()}`;
         setCast({
           question: makeActionQuestion('quick', current.settings.difficulty, current.seed, key),

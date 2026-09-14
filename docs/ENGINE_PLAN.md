@@ -6,7 +6,7 @@
 
 - [x] P0. Document superseding owner requirements, gameplay rules, architecture and this plan; preserve inherited unfinished work in a labelled checkpoint.
 - [x] P1. Character/equipment sheet: real stat breakdown, full item comparison, equip/unequip, selection/focus and accessible paper-doll layout. Test stat changes and item conservation; inspect laptop UI. Keep legacy inventory storage intact.
-- [ ] P2. Spatial inventory domain: 10 × 4 placements, item footprints, move/swap/cancel, separate equipped ownership, capacity and Haven stash; migrate legacy saves without item loss. Pure tests for overlaps, invalid slots and conservation.
+- [x] P2. Spatial inventory domain: 10 × 4 placements, item footprints, move/swap/cancel, separate equipped ownership, capacity and Haven stash; migrate legacy saves without item loss. Pure tests for overlaps, invalid slots and conservation.
 - [ ] P3. Spatial inventory UI: pointer and keyboard placement, hover/focus tooltip, full-pack recovery, stash. Add equipment slots only with real loot and rules. Browser tests for reload and small screens.
 - [ ] P4. Persistent combat HUD: health/mana globes, stamina, ammunition, action selection and belt. Resource fields/migration introduced with tested limits; no fake functioning controls.
 
@@ -40,7 +40,7 @@
 
 Baseline at planning time: main at 0d75013 plus inherited uncommitted build-0.3 combat/equipment/world work. Preserve it; do not claim inherited final browser verification. Three slots and list-backed inventory currently work; enemies are stationary and attacks use old quick/focus/ritual questions. Existing tests preserve that baseline until the corresponding increment intentionally replaces it. Node 22 is pinned; local runtime previously reported Node 25. No deployment belongs to the planning checkpoint.
 
-First execution target: P1 only, a visible useful inventory/stats improvement without coupling it to an unfinished combat rewrite. Subsequent sessions take the next unchecked increment. Update this file when actual evidence changes.
+P1 character sheet and P2 spatial domain/migration are now implemented. Next execution target: P3 interactive spatial inventory, stash and claimable full-pack recovery. Subsequent sessions take the next unchecked increment. Update this file when actual evidence changes.
 
 ## Later merchant extension
 

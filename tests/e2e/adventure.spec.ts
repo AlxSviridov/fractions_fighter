@@ -11,19 +11,58 @@ async function createHero(page: Page, name: string, avatar = 'The Mooncat') {
   await expect(page.getByRole('heading', { name: 'Haven', exact: true })).toBeVisible();
   await expect(page.locator('.ff-player')).toContainText(name);
 }
+const travelWards = new WeakMap<Page, number>();
+async function handleTravelWard(page: Page) {
+  await solve(page);
+  travelWards.set(page, (travelWards.get(page) ?? 0) + 1);
+}
 async function approach(page: Page, enemy: string) {
   await page
     .locator('.enemy-tracker')
     .getByRole('button', { name: new RegExp(`^${enemy}`) })
     .click();
-  await expect(page.locator('.combat-choice h2')).toHaveText(enemy, { timeout: 30000 });
+  const arrival = page.locator('.combat-choice').getByRole('heading', { name: enemy, exact: true });
+  const ward = page.getByRole('dialog', { name: /Raise your ward/ });
+  // Enemies can legitimately attack during a walk, especially on software-rendered CI.
+  for (let interruption = 0; interruption < 6; interruption++) {
+    await expect(arrival.or(ward).first()).toBeVisible({ timeout: 30000 });
+    if (await ward.isVisible()) {
+      await handleTravelWard(page);
+      continue;
+    }
+    await expect(arrival).toBeVisible();
+    return;
+  }
+  throw new Error(`Could not reach ${enemy} after defending six travel attacks`);
 }
 async function cast(page: Page, action: 'Quick strike' | 'Power skill' | 'Ancient ritual') {
-  await page
-    .locator('.combat-choice')
-    .getByRole('button', { name: new RegExp(`^${action}`) })
-    .click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  const ward = page.getByRole('dialog', { name: /Raise your ward/ });
+  for (let interruption = 0; interruption < 6; interruption++) {
+    if (await ward.isVisible()) {
+      await handleTravelWard(page);
+      continue;
+    }
+    try {
+      await page
+        .locator('.combat-choice')
+        .getByRole('button', { name: new RegExp(`^${action}`) })
+        .click({ timeout: 2000 });
+    } catch (error) {
+      if (await ward.isVisible()) {
+        await handleTravelWard(page);
+        continue;
+      }
+      throw error;
+    }
+    await expect(page.getByRole('dialog')).toBeVisible();
+    if (await ward.isVisible()) {
+      await handleTravelWard(page);
+      continue;
+    }
+    await expect(page.getByRole('dialog')).toHaveAccessibleName(new RegExp(action));
+    return;
+  }
+  throw new Error(`Could not start ${action} after defending six attacks`);
 }
 async function quickAnswer(page: Page) {
   const [left, right] = await page.locator('.rune-fall-card > span').allTextContents();
@@ -132,9 +171,14 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
   await expect(page.locator('.ff-player')).toContainText('360 XP');
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
   await page.getByRole('button', { name: 'Learning journal', exact: true }).click();
-  await expect(page.locator('.report-summary strong')).toHaveText(['6', '5', '5']);
+  const wards = travelWards.get(page) ?? 0;
+  await expect(page.locator('.report-summary strong')).toHaveText([
+    String(6 + wards),
+    String(5 + wards),
+    '5',
+  ]);
   const fractions = page.locator('.topic-row').filter({ hasText: 'Fractions & comparisons' });
-  await expect(fractions).toContainText('0%');
+  await expect(fractions).toContainText(`${Math.round((wards / (1 + wards)) * 100)}%`);
   await expect(fractions.locator(':scope > span').last()).toHaveText('1');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export this hero', exact: true }).click();

@@ -43,3 +43,5 @@ stalls reading public assets, inspect file flags and restore exact tracked bytes
 from Git after checking for local modifications. Do not substitute blank assets
 or commit placeholder content. The September 13 validation restored seven public
 assets byte-for-byte; Git reported no asset changes.
+
+Spatial inventory tests cover first-fit packing, overflow preservation, footprint bounds, one-item swaps (including reverse overlap), prototype-named item IDs, corrupted imports and legacy save migration. UI remains list-based until P3. Expedition helpers must distinguish incoming wards from player attack prompts, and count any additional defended travel attacks in journal assertions. Never assume a dialog opening means the requested action started.
