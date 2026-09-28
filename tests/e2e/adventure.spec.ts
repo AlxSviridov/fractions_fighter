@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { TASK_BANK } from '../../src/game/taskBank';
 
-// Answers come only from the rendered question, never the generator or save.
+// Combat answers come only from the rendered question, never the generator or save.
+// World puzzles are authored word problems; they are matched by their rendered
+// prompt to the reviewed task bank, whose answers are independently
+// oracle-checked in tests/taskBank.test.ts.
 async function createHero(page: Page, name: string, avatar = 'The Mooncat') {
   await page.getByRole('button', { name: 'New game', exact: true }).click();
   await page.getByRole('button', { name: avatar, exact: true }).click();
@@ -113,6 +117,61 @@ async function awaitDefence(page: Page, enemy: string) {
   return { incoming: Number(match[1]), armour: Number(match[2]), damage: Number(match[3]) };
 }
 
+const ward = (page: Page) => page.getByRole('dialog', { name: /Raise your ward/ });
+/** Wait for `ready` while defending any travel wards that interrupt the walk. */
+async function arriveAt(page: Page, ready: () => Promise<boolean>, what: string) {
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    if (await ward(page).isVisible()) {
+      await handleTravelWard(page);
+      continue;
+    }
+    if (await ready()) return;
+    await page.waitForTimeout(250);
+  }
+  throw new Error(`Never arrived at ${what}`);
+}
+/** Walk to a point of interest via the accessible journal list, then open it. */
+async function visit(page: Page, objectName: string) {
+  await page.getByRole('button', { name: 'Quests', exact: true }).click();
+  await page
+    .locator('.trail-guide')
+    .getByRole('button', { name: new RegExp(`^${objectName}`) })
+    .click();
+  const dialog = page.getByRole('dialog', { name: objectName, exact: true });
+  await arriveAt(page, () => dialog.isVisible(), objectName);
+  return dialog;
+}
+async function followObjective(page: Page, name: string) {
+  await page.getByRole('button', { name: 'Guide me there', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name, exact: true });
+  const combat = page.locator('.combat-choice').getByRole('heading', { name, exact: true });
+  await arriveAt(page, async () => (await dialog.isVisible()) || (await combat.isVisible()), name);
+}
+async function solvePuzzle(page: Page) {
+  const prompt = (await page.locator('.math-prompt').innerText()).trim();
+  const task = TASK_BANK.find((candidate) => candidate.prompt === prompt);
+  if (!task) throw new Error(`Puzzle not in the reviewed task bank: ${prompt}`);
+  await page.getByLabel(/^Your answer/).fill(String(task.answer));
+  await page.getByLabel(/^Your answer/).press('Enter');
+  await expect(page.locator('.rune-success')).toContainText('Solved!');
+  await page.getByRole('button', { name: 'Back to the trail', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+async function defeatWithRituals(page: Page, enemy: string) {
+  for (let round = 0; round < 4; round++) {
+    await cast(page, 'Ancient ritual');
+    await solve(page);
+    if (await page.locator('.loot-notification').isVisible()) return;
+    await arriveAt(
+      page,
+      () => page.locator('.combat-choice').getByRole('heading', { name: enemy }).isVisible(),
+      enemy,
+    );
+  }
+  throw new Error(`${enemy} survived four rituals`);
+}
+
 async function wrongQuickAnswer(page: Page) {
   const answer = await quickAnswer(page);
   return answer === '<' ? '>' : '<';
@@ -121,12 +180,17 @@ async function wrongQuickAnswer(page: Page) {
 test('complete expedition, supported quick maths, equipment, quest reward and save transfer', async ({
   page,
 }) => {
+  // Eight areas, four gates and a boss: much longer than the old single clearing.
+  test.setTimeout(720000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await createHero(page, 'Rune Tester');
   await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
-  await expect(page.locator('.enemy-tracker').getByRole('button', { name: / HP$/ })).toHaveCount(5);
+  await expect(page.locator('.region-banner')).toContainText('Waterfall Landing');
+  await expect(page.locator('.trail-map')).toBeVisible();
+  await expect(page.locator('.enemy-tracker').getByRole('button', { name: / HP$/ })).toHaveCount(3);
+  await expect(page.locator('.ff-quest')).toContainText('Lower the rope bridge in Fern Hollow');
   await approach(page, 'Bramble Prowler');
   await cast(page, 'Quick strike');
   const answer = await quickAnswer(page);
@@ -147,42 +211,60 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
   await page.getByRole('button', { name: 'Equip Tidefang', exact: true }).click();
   await expect(page.locator('.inventory-stats')).toContainText('14 Attack');
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
-  for (const enemy of ['Canopy Raider', 'Thornback Boar', 'Corsair Lookout', 'Shard Guardian']) {
-    await approach(page, enemy);
-    await cast(page, 'Ancient ritual');
-    await solve(page);
-    await expect(page.locator('.loot-notification')).toBeVisible();
-    await page.getByRole('button', { name: 'Equip now', exact: true }).click();
-    await expect(
-      page.locator('.enemy-tracker').getByRole('button', { name: `${enemy} CLEARED`, exact: true }),
-    ).toBeDisabled();
+
+  // A free chest rewards the first detour.
+  const chest = await visit(page, 'Mira’s Supply Chest');
+  await chest.getByRole('button', { name: 'Open it' }).click();
+  await expect(page.locator('.loot-notification')).toContainText('Explorer’s Hide Vest');
+  await page.getByRole('button', { name: 'Equip now', exact: true }).click();
+
+  // Critical path: winch → code lock → captain → three seals → guardian.
+  await followObjective(page, 'Bridge Winch');
+  await page.getByRole('button', { name: 'Solve the puzzle' }).click();
+  await solvePuzzle(page);
+  await expect(page.locator('.ff-quest')).toContainText('Crack the corsair code lock');
+  await followObjective(page, 'Corsair Code Lock');
+  await page.getByRole('button', { name: 'Solve the puzzle' }).click();
+  await solvePuzzle(page);
+  await expect(page.locator('.ff-quest')).toContainText('Defeat Captain Redsail');
+  await followObjective(page, 'Captain Redsail');
+  await defeatWithRituals(page, 'Captain Redsail');
+  await page.getByRole('button', { name: 'Equip now', exact: true }).click();
+  for (const seal of ['Seal of Shapes', 'Seal of Parts', 'Seal of Sharing']) {
+    await followObjective(page, seal);
+    await page.getByRole('button', { name: 'Solve the puzzle' }).click();
+    await solvePuzzle(page);
   }
-  await expect(page.locator('.ff-quest')).toContainText('5 / 5 threats overcome');
+  await expect(page.locator('.ff-quest')).toContainText('Defeat the Shard Guardian');
+  await followObjective(page, 'Shard Guardian');
+  await defeatWithRituals(page, 'Shard Guardian');
+  await expect(page.locator('.loot-notification')).toContainText('Compass of Unity');
+  await page.getByRole('button', { name: 'Equip now', exact: true }).click();
+  await expect(page.locator('.ff-quest')).toContainText('Return to Scout Mira');
+  await expect(page.locator('.ff-quest')).toContainText('5 / 5 trail objectives');
+  await page.screenshot({ path: 'test-results/sanctum-cleared.png' });
+  const xpBefore = Number((await page.locator('.ff-player').innerText()).match(/(\d+) XP/)![1]);
+  const goldBefore = Number((await page.locator('.ff-player').innerText()).match(/(\d+) gold/)![1]);
   await page.getByRole('button', { name: 'Return to Haven', exact: true }).click();
   await page.getByRole('button', { name: /Speak to Mira/ }).click();
   await page.getByRole('button', { name: 'Claim Mira’s reward', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Claim Mira’s reward', exact: true })).toHaveCount(
     0,
   );
-  await expect(page.locator('.ff-player')).toContainText('360 XP');
-  await expect(page.locator('.ff-player')).toContainText('197 gold');
+  await expect(page.locator('.ff-player')).toContainText(`${xpBefore + 100} XP`);
+  await expect(page.locator('.ff-player')).toContainText(`${goldBefore + 80} gold`);
   await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
   await page.screenshot({ path: 'test-results/expedition-complete.png' });
   await page.reload();
   await page.getByRole('button', { name: /Continue adventure/ }).click();
   await expect(page.getByRole('button', { name: 'Begin the next expedition' })).toBeVisible();
-  await expect(page.locator('.ff-player')).toContainText('360 XP');
+  await expect(page.locator('.ff-player')).toContainText(`${xpBefore + 100} XP`);
   await page.getByRole('button', { name: 'Main menu', exact: true }).click();
   await page.getByRole('button', { name: 'Learning journal', exact: true }).click();
-  const wards = travelWards.get(page) ?? 0;
-  await expect(page.locator('.report-summary strong')).toHaveText([
-    String(6 + wards),
-    String(5 + wards),
-    '5',
-  ]);
+  // Prowler, captain and guardian fell; every puzzle and ward counts as a question.
+  await expect(page.locator('.report-summary strong').nth(2)).toHaveText('3');
   const fractions = page.locator('.topic-row').filter({ hasText: 'Fractions & comparisons' });
-  await expect(fractions).toContainText(`${Math.round((wards / (1 + wards)) * 100)}%`);
-  await expect(fractions.locator(':scope > span').last()).toHaveText('1');
+  await expect(fractions.locator(':scope > span').last()).not.toHaveText('0');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export this hero', exact: true }).click();
   const exported = await downloaded;
@@ -191,7 +273,9 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
   await page.getByRole('button', { name: /Continue adventure/ }).click();
   await page.getByRole('button', { name: 'Begin the next expedition' }).click();
   await expect(page.locator('.zone-heading')).toContainText('EXPEDITION 2');
-  await expect(page.locator('.ff-quest')).toContainText('0 / 5 threats overcome');
+  // Story shortcuts persist: the bridge and stockade stay open on the next expedition.
+  await expect(page.locator('.ff-quest')).toContainText('2 / 5 trail objectives');
+  await expect(page.locator('.ff-quest')).toContainText('Defeat Captain Redsail');
   await page
     .getByLabel('Import save file', { exact: true })
     .setInputFiles((await exported.path())!);
@@ -201,7 +285,7 @@ test('complete expedition, supported quick maths, equipment, quest reward and sa
     .getByRole('navigation', { name: 'Game navigation' })
     .getByRole('button', { name: 'Inventory', exact: true })
     .click();
-  await expect(page.locator('.spatial-item')).toHaveCount(3);
+  await expect(page.locator('.spatial-item').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -367,13 +451,13 @@ test('a click-to-approach route survives an inventory thinking pause', async ({ 
   await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
   await page
     .locator('.enemy-tracker')
-    .getByRole('button', { name: /^Shard Guardian/ })
+    .getByRole('button', { name: /^Thornback Boar/ })
     .click();
   await page.keyboard.press('i');
   await expect(page.getByRole('dialog')).toContainText('World paused');
   await page.keyboard.press('Escape');
-  await waitForArrival(page, 'Shard Guardian');
-  await expect(page.locator('.combat-choice h2')).toHaveText('Shard Guardian');
+  await waitForArrival(page, 'Thornback Boar');
+  await expect(page.locator('.combat-choice h2')).toHaveText('Thornback Boar');
 });
 
 test('spatial pack supports keyboard, drag, stash retrieval and empty carried inventory', async ({

@@ -12,6 +12,8 @@ import {
   Gem,
   Heart,
   Home,
+  Lock,
+  Navigation,
   Leaf,
   Map as MapIcon,
   Menu,
@@ -34,6 +36,7 @@ import { LootArt } from './components/LootArt';
 import { InventoryPanel } from './components/InventoryPanel';
 import { Modal } from './components/Modal';
 import { MathEncounter } from './components/MathEncounter';
+import { TrailMap } from './components/TrailMap';
 import type { WorldHandle } from './components/World';
 import { DIFFICULTIES, TOPICS } from './game/math';
 import type { Difficulty } from './game/math';
@@ -51,7 +54,10 @@ import {
   enterZone,
   equipItem,
   freshRpg,
+  interactObject,
+  levelView,
   moveStoredItem,
+  objectStatus,
   QUEST,
   questProgress,
   STORY,
@@ -64,14 +70,39 @@ import { defencePreview, resolveDefence } from './game/defence';
 import { HEROES, portrait } from './game/heroes';
 import { makeActionQuestion } from './game/actionMath';
 import type { ActionQuestion, ActionTier } from './game/actionMath';
+import {
+  ENEMY_DEFINITIONS,
+  LEVEL_NAME,
+  LEVEL_OBJECTS,
+  OBJECTIVES,
+  REGIONS,
+  THREAT_RADIUS,
+  enemyAccessible,
+  nextObjective,
+  objectById,
+  regionAt,
+  targetPosition,
+} from './game/level';
+import type { LevelObject, Region } from './game/level';
+import { drawTask, taskQuestion, TASK_POOLS } from './game/taskBank';
 const World = lazy(() => import('./components/World'));
 type Screen = 'menu' | 'create' | 'play';
-type Panel = 'recap' | 'load' | 'settings' | 'inventory' | 'quests' | 'parents' | 'help' | null;
+type Panel =
+  'recap' | 'load' | 'settings' | 'inventory' | 'quests' | 'parents' | 'help' | 'object' | null;
 type Cast = {
   question: ActionQuestion;
-  action: CombatAction | 'heal' | 'defend';
+  action: CombatAction | 'heal' | 'defend' | 'object';
   enemyId?: string;
+  objectId?: string;
   title: string;
+};
+const OBJECT_EYEBROW: Record<LevelObject['kind'], string> = {
+  chest: 'TREASURE',
+  puzzle: 'PUZZLE CHEST',
+  lore: 'TRAIL LORE',
+  shrine: 'SHRINE',
+  mechanism: 'MECHANISM',
+  seal: 'RUNE SEAL',
 };
 function exportJson(data: string, name: string) {
   const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
@@ -112,7 +143,12 @@ const classIcon = (id: ClassId, size = 24) =>
     <WandSparkles size={size} />
   );
 export default function App() {
-  const [threat, setThreat] = useState<string | null>(null);
+  const [threat, setThreat] = useState<{ name: string; tell: string } | null>(null);
+  const [nearbyObject, setNearbyObject] = useState<string | null>(null),
+    [activeObject, setActiveObject] = useState<string | null>(null),
+    [region, setRegion] = useState<Region | null>(null),
+    [banner, setBanner] = useState<Region | null>(null),
+    [showMap, setShowMap] = useState(true);
   const [lastQuestion, setLastQuestion] = useState<ActionQuestion | null>(null);
   const [initial] = useState(loadSave),
     [save, setSave] = useState<Save>(() => ({
@@ -145,7 +181,10 @@ export default function App() {
     stats = combatStats(rpg),
     quest = questProgress(rpg),
     enemy = rpg.enemies.find((e) => e.id === selectedEnemy && e.hp > 0),
-    reports = topicReports(save.attempts);
+    reports = topicReports(save.attempts),
+    view = levelView(rpg),
+    objective = nextObjective(view),
+    objectivePoint = objective?.target ? targetPosition(objective.target) : null;
   const paused = screen !== 'play' || !!panel || !!cast || blocked || resolving;
   const threatContext = useRef({ paused, loot, position, readySeed });
   threatContext.current = { paused, loot, position, readySeed };
@@ -168,9 +207,13 @@ export default function App() {
         setThreat(null);
         return;
       }
+      const reachable = levelView(campaign);
       const nearby = campaign.enemies
         .filter(
-          (e) => e.hp > 0 && Math.hypot(e.x - context.position[0], e.z - context.position[1]) < 6,
+          (e) =>
+            e.hp > 0 &&
+            enemyAccessible(e.key, reachable) &&
+            Math.hypot(e.x - context.position[0], e.z - context.position[1]) < THREAT_RADIUS,
         )
         .sort(
           (a, b) =>
@@ -189,7 +232,7 @@ export default function App() {
       }
       elapsed += 250;
       if (elapsed === 4500) {
-        setThreat(nearby.name);
+        setThreat({ name: nearby.name, tell: nearby.tell });
         world.current?.telegraphEnemy(nearby.id);
       }
       if (elapsed >= 8000) {
@@ -234,6 +277,23 @@ export default function App() {
     const id = setTimeout(() => setToast(''), 5500);
     return () => clearTimeout(id);
   }, [toast]);
+  // Region banners announce each new area of the trail as the hero arrives.
+  useEffect(() => {
+    if (screen !== 'play' || rpg.zone !== 'wilds') {
+      setRegion(null);
+      return;
+    }
+    const here = regionAt(position[0], position[1]);
+    if (here && here.id !== region?.id) {
+      setRegion(here);
+      setBanner(here);
+    }
+  }, [position, rpg.zone, screen, region?.id]);
+  useEffect(() => {
+    if (!banner) return;
+    const id = setTimeout(() => setBanner(null), 4200);
+    return () => clearTimeout(id);
+  }, [banner]);
   useEffect(() => {
     if (walkTarget && readySeed === save.seed && !paused && world.current) {
       world.current.approachEnemy(walkTarget);
@@ -256,6 +316,10 @@ export default function App() {
       }
       if (e.key.toLowerCase() === 'j') {
         setPanel((p) => (p === 'quests' ? null : 'quests'));
+        e.preventDefault();
+      }
+      if (e.key.toLowerCase() === 'm' && !panel) {
+        setShowMap((shown) => !shown);
         e.preventDefault();
       }
       if (e.key === 'Escape' && !panel) {
@@ -380,18 +444,64 @@ export default function App() {
         action === 'heal' ? 'Awaken a healing draught' : `${enemy!.name} · ${ACTIONS[action].name}`,
     });
   }
+  function openObject(id: string) {
+    if (cast || resolving || screen !== 'play' || rpg.zone !== 'wilds' || !objectById(id)) return;
+    setSelectedEnemy(null);
+    setActiveObject(id);
+    setPanel('object');
+  }
+  /** Show the consequences of a resolved object: loot card, world effect and message. */
+  function presentObject(old: RpgState, next: RpgState, objectId: string) {
+    const found = next.inventory.find((i) => !old.inventory.some((o) => o.id === i.id));
+    if (found) {
+      setLoot(found);
+      setSelectedItem(found.id);
+    }
+    world.current?.celebrate(objectId);
+    sound(save.settings.sound);
+    notify(next.lastReward);
+  }
+  function activateObject(id: string) {
+    const object = objectById(id);
+    if (!object || cast || resolving) return;
+    const status = objectStatus(rpg, id);
+    if (!status.ok) {
+      notify(status.message);
+      return;
+    }
+    setPanel(null);
+    if (object.task) {
+      const task = drawTask(object.task.pool, save.settings.difficulty, save.seed, rpg.expedition);
+      setCast({
+        question: taskQuestion(
+          task,
+          object.task.tier,
+          `${save.slotId ?? 'legacy'}:${save.seed}:${rpg.expedition}`,
+        ),
+        action: 'object',
+        objectId: id,
+        title: `${object.name} · ${TASK_POOLS[object.task.pool].skill}`,
+      });
+      return;
+    }
+    const next = interactObject(rpg, id);
+    updateRpg(next);
+    presentObject(rpg, next, id);
+  }
   function answerAction(value: string, correct: boolean, hinted: boolean, durationMs: number) {
     if (!cast) return;
     const s = currentSave.current,
       old = s.rpg!;
     const next =
-      cast.action === 'defend'
-        ? resolveDefence(old, cast.enemyId!, correct ? 'blocked' : 'hit')
-        : cast.action === 'heal'
-          ? correct
-            ? usePotion(old)
-            : old
-          : attackEnemy(old, cast.enemyId!, cast.action, correct);
+      cast.action === 'object'
+        ? interactObject(old, cast.objectId!, correct)
+        : cast.action === 'defend'
+          ? resolveDefence(old, cast.enemyId!, correct ? 'blocked' : 'hit')
+          : cast.action === 'heal'
+            ? correct
+              ? usePotion(old)
+              : old
+            : attackEnemy(old, cast.enemyId!, cast.action, correct);
     const attempt = {
       questionId: cast.question.id,
       topic: cast.question.topic,
@@ -409,6 +519,14 @@ export default function App() {
       expedition: next.expedition,
       attempts: [...s.attempts, attempt].slice(-10000),
     });
+    if (cast.action === 'object') {
+      // The success screen stays open to show the method; the reward is already saved.
+      if (correct) {
+        setLastQuestion(cast.question);
+        presentObject(old, next, cast.objectId!);
+      }
+      return;
+    }
     if (cast.action === 'defend') {
       setLastQuestion(cast.question);
       setCast(null);
@@ -503,12 +621,11 @@ export default function App() {
           ref={world}
           save={renderSave}
           paused={paused}
-          onNearby={() => {}}
-          onInteract={() => {}}
+          onNearby={setNearbyObject}
+          onInteract={() => nearbyObject && openObject(nearbyObject)}
           onReady={setReadySeed}
-          onTargetInteract={() =>
-            notify('Ancient waystones mark the trail. Your quest is to reclaim the compass shard.')
-          }
+          onTargetInteract={openObject}
+          onBlocked={notify}
           onEnemyInteract={target}
           onZoneInteract={travel}
           onPosition={(x, z) => setPosition([x, z])}
@@ -670,7 +787,7 @@ export default function App() {
               <span>
                 {rpg.zone === 'village' ? 'SANCTUARY · NO ENEMIES' : 'EXPEDITION ' + rpg.expedition}
               </span>
-              <h1>{rpg.zone === 'village' ? 'Haven' : 'The Emerald Wilds'}</h1>
+              <h1>{rpg.zone === 'village' ? 'Haven' : LEVEL_NAME}</h1>
             </div>
             <nav aria-label="Game navigation">
               <button onClick={() => openPanel('quests')}>
@@ -714,31 +831,94 @@ export default function App() {
           <section className="ff-quest">
             <div className="eyebrow">
               <Compass size={13} />
-              ACTIVE QUEST
+              {rpg.zone === 'wilds' ? LEVEL_NAME.toUpperCase() : 'ACTIVE QUEST'}
             </div>
             <h2>{QUEST.name}</h2>
-            <p>
+            <p className="objective-text">
               {quest.ready
-                ? 'Return to Scout Mira in Haven.'
+                ? 'You hold the compass fragment. Return to Scout Mira in Haven.'
                 : quest.claimed
                   ? 'A fraction restored. A new trail awaits.'
                   : rpg.zone === 'village'
-                    ? 'Mira needs a fighter. Take the east gate into the wilds.'
-                    : rpg.enemies.filter((e) => e.hp > 0).every((e) => e.kind === 'guardian')
-                      ? 'The trail is clear. Enter the guardian sanctuary.'
-                      : 'Follow the river trail past the pirate outpost. Reclaim the compass.'}
+                    ? 'Mira needs a fighter. Take the gate into the wilds.'
+                    : (objective?.text ?? 'Explore the trail.')}
             </p>
             <div className="quest-progress">
               <i style={{ width: `${(quest.current / quest.target) * 100}%` }} />
             </div>
             <small>
-              {quest.current} / {quest.target} threats overcome
+              {quest.current} / {quest.target} trail objectives
             </small>
+            {rpg.zone === 'wilds' && objective?.target && !quest.ready && (
+              <button
+                className="text-button guide-button"
+                disabled={!!cast || resolving}
+                onClick={() => {
+                  if (objective.target!.kind === 'object')
+                    world.current?.goTo(objective.target!.id);
+                  else {
+                    const target = rpg.enemies.find(
+                      (e) => e.key === objective.target!.id && e.hp > 0,
+                    );
+                    if (target) walkToEnemy(target.id);
+                  }
+                }}
+              >
+                <Navigation size={12} />
+                Guide me there
+              </button>
+            )}
             <button className="text-button" onClick={() => openPanel('quests')}>
               Quest details
               <ArrowRight size={12} />
             </button>
           </section>
+          {rpg.zone === 'wilds' && showMap && (
+            <TrailMap
+              view={view}
+              player={{ x: position[0], z: position[1] }}
+              objective={quest.ready ? null : objectivePoint}
+              aliveEnemies={rpg.enemies.filter((e) => e.hp > 0).map((e) => e.key)}
+            />
+          )}
+          {rpg.zone === 'wilds' && banner && (
+            <div className="region-banner" role="status" key={banner.id}>
+              <span>{banner.subtitle}</span>
+              <strong>{banner.name}</strong>
+              <small>{banner.intro}</small>
+            </div>
+          )}
+          {rpg.zone === 'wilds' &&
+            nearbyObject &&
+            !cast &&
+            !panel &&
+            !resolving &&
+            (() => {
+              const object = objectById(nearbyObject)!;
+              const status = objectStatus(rpg, object.id);
+              return (
+                <button className="interact-prompt" onClick={() => openObject(object.id)}>
+                  {status.ok ? (
+                    <Sparkles size={15} />
+                  ) : status.reason === 'locked' ? (
+                    <Lock size={15} />
+                  ) : (
+                    <Check size={15} />
+                  )}
+                  <span>
+                    {object.name}
+                    <small>
+                      {status.ok
+                        ? object.task
+                          ? `Untimed puzzle · ${TASK_POOLS[object.task.pool].skill}`
+                          : 'Click or press E'
+                        : status.message}
+                    </small>
+                  </span>
+                  <kbd>E</kbd>
+                </button>
+              );
+            })()}
           {rpg.zone === 'village' && (
             <section className="village-card">
               <div className="eyebrow">
@@ -772,34 +952,45 @@ export default function App() {
               <div>
                 <span>
                   <MapIcon size={12} />
-                  ON THE TRAIL
+                  THREATS IN REACH
                 </span>
+                <small>
+                  {rpg.enemies.filter((e) => e.hp === 0).length}/{rpg.enemies.length} cleared
+                </small>
               </div>
-              {rpg.enemies.map((e) => (
-                <button
-                  key={e.id}
-                  disabled={e.hp === 0 || !!cast || resolving}
-                  onClick={() => walkToEnemy(e.id)}
-                  className={selectedEnemy === e.id ? 'tracked' : ''}
-                >
-                  <span
-                    className={
-                      e.hp === 0 ? 'enemy-done' : e.kind === 'guardian' ? 'boss-dot' : 'enemy-dot'
-                    }
+              {(() => {
+                const reachable = rpg.enemies
+                  .filter((e) => e.hp > 0 && enemyAccessible(e.key, view))
+                  .sort(
+                    (a, b) =>
+                      Math.hypot(a.x - position[0], a.z - position[1]) -
+                      Math.hypot(b.x - position[0], b.z - position[1]),
+                  )
+                  .slice(0, 3);
+                if (!reachable.length)
+                  return (
+                    <p className="tracker-empty">
+                      No threats in reach. {objective ? 'Follow the trail objective.' : ''}
+                    </p>
+                  );
+                return reachable.map((e) => (
+                  <button
+                    key={e.id}
+                    disabled={!!cast || resolving}
+                    onClick={() => walkToEnemy(e.id)}
+                    className={selectedEnemy === e.id ? 'tracked' : ''}
                   >
-                    {e.hp === 0 ? (
-                      <Check size={11} />
-                    ) : e.kind === 'guardian' ? (
-                      <Skull size={11} />
-                    ) : null}
-                  </span>
-                  <span>
-                    {e.name}
-                    <i style={{ width: `${(e.hp / e.maxHp) * 100}%` }} />
-                  </span>
-                  <small>{e.hp === 0 ? 'CLEARED' : `${e.hp} HP`}</small>
-                </button>
-              ))}
+                    <span className={e.rank === 'minion' ? 'enemy-dot' : 'boss-dot'}>
+                      {e.rank !== 'minion' ? <Skull size={11} /> : null}
+                    </span>
+                    <span>
+                      {e.name}
+                      <i style={{ width: `${(e.hp / e.maxHp) * 100}%` }} />
+                    </span>
+                    <small>{`${e.hp} HP`}</small>
+                  </button>
+                ));
+              })()}
             </section>
           )}
           {enemy && rpg.zone === 'wilds' && !cast && !resolving && (
@@ -812,7 +1003,11 @@ export default function App() {
                 <X size={15} />
               </button>
               <div className="eyebrow">
-                {enemy.kind === 'guardian' ? 'ANCIENT GUARDIAN' : 'TARGET ACQUIRED'}
+                {enemy.rank === 'boss'
+                  ? 'ANCIENT GUARDIAN'
+                  : enemy.rank === 'elite'
+                    ? 'ELITE FOE'
+                    : 'TARGET ACQUIRED'}
               </div>
               <h2>{enemy.name}</h2>
               <div className="enemy-health">
@@ -896,7 +1091,7 @@ export default function App() {
             <Leaf size={12} />
             {rpg.zone === 'village'
               ? 'Haven is safe. Your health and draughts are restored.'
-              : `${position[0] > 7 ? 'River crossing' : position[1] < -4 ? 'Guardian sanctuary' : position[0] > 3 && position[1] < 1 ? 'Pirate outpost' : 'Emerald trail'} · Click ground to move · Click a monster to fight`}
+              : `${region?.name ?? LEVEL_NAME} · Click ground to move · Click a monster to fight · M hides the map`}
           </div>
           <section className="ff-actionbar">
             <div
@@ -987,7 +1182,7 @@ export default function App() {
       )}
       {screen !== 'play' && (
         <footer className="menu-footer">
-          <span>FRACTIONS FIGHTER · DEVELOPMENT BUILD 0.3</span>
+          <span>FRACTIONS FIGHTER · DEVELOPMENT BUILD 0.4</span>
           <button onClick={() => openPanel('help')}>How to play</button>
           <button
             aria-label={save.settings.sound ? 'Mute sound' : 'Enable sound'}
@@ -1116,22 +1311,69 @@ export default function App() {
           </div>
           <p>{QUEST.description}</p>
           <div className="quest-checklist">
-            {rpg.enemies.map((e) => (
-              <div key={e.id}>
-                <span className={e.hp === 0 ? 'checked' : ''}>
-                  {e.hp === 0 ? <Check size={13} /> : <Swords size={13} />}
-                </span>
-                <strong>{e.name}</strong>
-                <small>
-                  {e.hp === 0
-                    ? 'COMPLETED'
-                    : e.kind === 'guardian'
-                      ? 'COMPASS FRAGMENT'
-                      : 'JUNGLE THREAT'}
-                </small>
-              </div>
-            ))}
+            {OBJECTIVES.map((o) => {
+              const done = o.done(view);
+              return (
+                <div key={o.id}>
+                  <span className={done ? 'checked' : ''}>
+                    {done ? <Check size={13} /> : <Compass size={13} />}
+                  </span>
+                  <strong>{o.text}</strong>
+                  <small>{done ? 'COMPLETED' : objective?.id === o.id ? 'CURRENT' : 'AHEAD'}</small>
+                </div>
+              );
+            })}
           </div>
+          <div className="trail-discoveries">
+            <span>
+              <Swords size={14} />
+              {rpg.enemies.filter((e) => e.hp === 0).length}/{ENEMY_DEFINITIONS.length} threats
+            </span>
+            <span>
+              <Gem size={14} />
+              {
+                LEVEL_OBJECTS.filter(
+                  (o) => (o.kind === 'chest' || o.kind === 'puzzle') && rpg.resolved.includes(o.id),
+                ).length
+              }
+              /{LEVEL_OBJECTS.filter((o) => o.kind === 'chest' || o.kind === 'puzzle').length}{' '}
+              treasures
+            </span>
+            <span>
+              <BookOpen size={14} />
+              {LEVEL_OBJECTS.filter((o) => o.kind === 'lore' && rpg.resolved.includes(o.id)).length}
+              /{LEVEL_OBJECTS.filter((o) => o.kind === 'lore').length} lore
+            </span>
+            <span>
+              <MapIcon size={14} />
+              {REGIONS.length} areas on the trail
+            </span>
+          </div>
+          {rpg.zone === 'wilds' && (
+            <div className="trail-guide">
+              <h3>Points of interest</h3>
+              {LEVEL_OBJECTS.filter((o) => objectStatus(rpg, o.id).ok).map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => {
+                    setPanel(null);
+                    world.current?.goTo(o.id);
+                  }}
+                >
+                  <Navigation size={13} />
+                  <span>
+                    {o.name}
+                    <small>
+                      {o.task
+                        ? TASK_POOLS[o.task.pool].skill
+                        : OBJECT_EYEBROW[o.kind].toLowerCase()}
+                    </small>
+                  </span>
+                  <ArrowRight size={13} />
+                </button>
+              ))}
+            </div>
+          )}
           <div className="quest-rewards">
             <span>
               <Coins size={17} />
@@ -1165,6 +1407,86 @@ export default function App() {
           )}
         </Modal>
       )}
+      {panel === 'object' &&
+        activeObject &&
+        (() => {
+          const object = objectById(activeObject)!;
+          const status = objectStatus(rpg, object.id);
+          const pool = object.task ? TASK_POOLS[object.task.pool] : null;
+          const reward = object.reward;
+          return (
+            <Modal title={object.name} eyebrow={OBJECT_EYEBROW[object.kind]} onClose={closePanel}>
+              <p className={object.kind === 'lore' ? 'lore-text' : ''}>{object.description}</p>
+              {pool && (
+                <div className="object-task">
+                  <Sparkles size={16} />
+                  <span>
+                    <strong>{pool.title}</strong>
+                    <small>
+                      {pool.skill} ·{' '}
+                      {object.task!.tier === 'ritual' ? 'long, multi-step' : 'focused'} · untimed ·
+                      hints allowed · mistakes cost nothing
+                    </small>
+                  </span>
+                </div>
+              )}
+              {(reward.xp > 0 ||
+                reward.gold > 0 ||
+                reward.loot ||
+                reward.heal ||
+                reward.potions) && (
+                <div className="quest-rewards">
+                  {reward.loot && (
+                    <span className={`rarity-text-${reward.loot.rarity}`}>
+                      <Gem size={16} />
+                      {reward.loot.rarity} {reward.loot.slot}
+                    </span>
+                  )}
+                  {reward.xp > 0 && (
+                    <span>
+                      <Sparkles size={16} />
+                      {reward.xp} XP
+                    </span>
+                  )}
+                  {reward.gold > 0 && (
+                    <span>
+                      <Coins size={16} />
+                      {reward.gold} gold
+                    </span>
+                  )}
+                  {reward.heal && (
+                    <span>
+                      <Heart size={16} />
+                      Full health
+                    </span>
+                  )}
+                  {!!reward.potions && (
+                    <span>
+                      <Heart size={16} />+{reward.potions} draught
+                    </span>
+                  )}
+                </div>
+              )}
+              {status.ok ? (
+                <button className="primary full" onClick={() => activateObject(object.id)}>
+                  {object.task
+                    ? 'Solve the puzzle'
+                    : object.kind === 'lore'
+                      ? 'Read and remember'
+                      : object.kind === 'shrine'
+                        ? 'Drink from the shrine'
+                        : 'Open it'}
+                  <ArrowRight size={16} />
+                </button>
+              ) : (
+                <p className="object-status">
+                  {status.reason === 'locked' ? <Lock size={14} /> : <Check size={14} />}
+                  {status.message}
+                </p>
+              )}
+            </Modal>
+          );
+        })()}
       {panel === 'settings' && (
         <Modal title="Shape your adventure." eyebrow="SETTINGS" onClose={closePanel}>
           <p>Only quick, simple runes use a timer. Power skills and rituals always wait for you.</p>
@@ -1339,8 +1661,9 @@ export default function App() {
             <div>
               <strong>Click to explore. Click to fight.</strong>
               <p>
-                Enter the wilds. Click ground to walk and a monster to approach it. Your trail list
-                also guides you to targets.
+                The Emerald Trail runs north through eight areas. Click ground to walk — the hero
+                finds the way round trees and rivers. Click a monster to approach it, or a glowing
+                object to use it. The trail map (M) and “Guide me there” show the next objective.
               </p>
             </div>
           </div>
@@ -1368,12 +1691,24 @@ export default function App() {
             </div>
           </div>
           <div className="howto-step">
+            <Lock />
+            <div>
+              <strong>Locks, seals and hidden treasure</strong>
+              <p>
+                Bridges, gates and seals open with untimed puzzles — fractions, percentages, shapes
+                and sharing. Mistakes cost nothing. Optional detours hide harder puzzle chests with
+                the best loot, a healing shrine and trail lore.
+              </p>
+            </div>
+          </div>
+          <div className="howto-step">
             <Backpack />
             <div>
               <strong>Find loot. Grow stronger.</strong>
               <p>
-                Every defeated enemy drops gear. Equip it from Inventory (I). Clear five threats,
-                return to Mira, claim the reward, then seek the next compass fragment.
+                Every defeated enemy and treasure chest drops gear. Equip it from Inventory (I).
+                Lower the bridge, crack the stockade lock, defeat Captain Redsail, break three seals
+                and overcome the Shard Guardian. Then return to Mira for her reward.
               </p>
             </div>
           </div>
@@ -1420,8 +1755,8 @@ export default function App() {
       {threat && !cast && !panel && (
         <div className="enemy-warning" role="status">
           <Shield size={19} />
-          <strong>{threat} is preparing an attack!</strong>
-          <span>Move out of range or prepare to defend.</span>
+          <strong>{threat.name} is preparing an attack!</strong>
+          <span>{threat.tell} Move out of range or prepare to defend.</span>
         </div>
       )}
       {cast && (
@@ -1432,6 +1767,15 @@ export default function App() {
             cast.action === 'heal'
               ? 'The draught is safe. Try again — or use a hint.'
               : rpg.lastReward
+          }
+          puzzle={
+            cast.action === 'object'
+              ? {
+                  label: `${OBJECT_EYEBROW[objectById(cast.objectId!)!.kind]} · UNTIMED`,
+                  success: 'Solved!',
+                  continueLabel: 'Back to the trail',
+                }
+              : undefined
           }
           title={cast.title}
           defending={cast.action === 'defend'}

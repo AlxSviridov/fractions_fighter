@@ -34,6 +34,8 @@ Owner maths acceptance checklist (all still unimplemented in the legacy combat):
 
 ## World interaction and quests
 
+> 28 September 2026: the authored Chapter I level (decision 0005, LEVEL_DESIGN.md) delivered persistent claim-once chests, gates, a shrine, lore objects, typed critical-path objectives and encounter identities in the **legacy** combat model. P13's shared proximity controller, labels, keyboard access and claim-once treasure are implemented. P13's full-pack recovery still uses the inherited gold conversion (P3b). P14/P15/P16 remain open as written: no altar recharge, no NPC dialogue markers, and no spell-only door yet (the Sanctum Door is maths-sealed and should gain a spell-tagged condition in P16).
+
 - [ ] P13. Shared proximity interaction controller, labels and keyboard access; convert one chest into persistent claim-once treasure with full-pack recovery.
 - [ ] P14. Working recharge altar and village well; visible effect, pause, bounded blessing and persisted activation where appropriate.
 - [ ] P15. Typed quest state/objectives and migration; interactive Mira with !/? markers, acceptance/dialogue/journal and once-only turn-in.

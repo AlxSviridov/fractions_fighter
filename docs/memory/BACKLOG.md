@@ -1,6 +1,6 @@
 # Progress tracker
 
-Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-owner-review.md` and `../feedback/2026-09-13-combat-and-equipment-review.md`. The original slice was rejected; checked implementation is not owner acceptance.
+Updated 2026-09-28 (Chapter I level design added; earlier items from 2026-09-13). Full owner requests are retained in `../feedback/2026-09-13-owner-review.md` and `../feedback/2026-09-13-combat-and-equipment-review.md`. The original slice was rejected; checked implementation is not owner acceptance.
 
 ## Owner list — implemented in build 0.3
 
@@ -30,9 +30,30 @@ Updated 2026-09-13. Full owner requests are retained in `../feedback/2026-09-13-
 - [ ] Confirm green GitHub CI after P3 route-preservation fix. P2 run 34824017079 still failed; see latest session note.
 - [ ] Verified Firebase Hosting release and live smoke test.
 
+## Chapter I level design — The Emerald Trail (build 0.4, 28 September 2026)
+
+Design: [LEVEL_DESIGN.md](../LEVEL_DESIGN.md). Tasks: [TASK_BANK.md](../TASK_BANK.md). Decision: [0005](../decisions/0005-authored-level-and-task-bank.md).
+
+- [x] LD-1 Pure level data: 8 areas, 4 gates, 9 encounters (minion/elite/boss), 14 objects, 5 critical-path objectives.
+- [x] LD-2 Pathfinding with clearance and blocked-gate explanations; declared gate topology proven by tests.
+- [x] LD-3 Object rules: claim-once chests, boss-gated strongbox, shrine, lore, mechanisms, seals; story vs expedition persistence; safe wrong answers.
+- [x] LD-4 Task repository: 63 authored untimed puzzles (7 pools × 3 bands × 3) with independent oracle tests and per-expedition rotation.
+- [x] LD-5 Renderer: authored scenery per area, river and rope bridge, stockade, cove, antechamber, sanctum; animated gates, chests and markers; follow camera; chunked batching.
+- [x] LD-6 HUD: trail map (M), objective card with Guide me there, region banners, E/click interaction prompt, points-of-interest list, threats-in-reach tracker, object dialog.
+- [x] LD-7 Save migration from the five-enemy trail; unit tests (level, task bank, updated RPG/defence) pass.
+- [ ] LD-8 Full browser suite green on the new level in CI (local software-rendered run evidence in STATE).
+- [ ] LD-9 Independent maths review of all 63 prompts (wording, reading load, 11+ fit). See TASK_BANK review record.
+- [ ] LD-10 Real child playtest using the LEVEL_DESIGN playtest questions; time each area; tune HP, threat radius and puzzle bands.
+- [ ] LD-11 Grow the bank to ≥ 5 variants per pool/band so replays repeat less.
+- [ ] LD-12 Spell-only Sanctum Door condition once P11–P12 spells exist (MATH-3c/P16).
+- [ ] LD-13 Distinct enemy behaviours per area (P6/P17): boar charge, lookout ranged, sentinel area slam, captain two-phase.
+- [ ] LD-14 NPC on the trail (e.g. a stranded explorer at Tide Ford) with a side quest using the P15 quest state.
+- [ ] LD-15 Occlusion pass: fade trees between camera and hero instead of relying on the undergrowth-only camera edge.
+- [ ] LD-16 Chapter II data set (river delta / corsair fleet) reusing the level format.
+
 ## Next meaningful gameplay increments
 
-- [ ] Reward exploration: a real optional discovery/chest, persistent claim-once reward and route choice. Current beacon/shrines are scenery only.
+- [x] Reward exploration: a real optional discovery/chest, persistent claim-once reward and route choice. Delivered by the Emerald Trail (LD-3).
 - [ ] Distinct enemy telegraphs/attack patterns and a short free-action charge experiment; reduce repeated quiz interruptions.
 - [ ] Useful village forge/shop economy, equipment tradeoffs and loot rotation; gold currently accumulates.
 - [ ] Extend compact map into a paced 20–30 minute story arc with side quests and authored discoveries.

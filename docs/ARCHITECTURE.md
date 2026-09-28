@@ -17,11 +17,14 @@
 `src/game/math.ts`: questions with topic, difficulty, prompt, valid answers and worked explanation; injected deterministic random source.
 `src/game/actionMath.ts`: action-tier questions (quick/focus/ritual), exact comparisons and reviewed explanations.
 `src/game/inventory.ts`: pure 10×4 placement, item footprints, atomic moves/swaps, strict layout validation and legacy overflow migration.
-`src/game/rpg.ts`: pure combat, equipment, enemy/quest rewards, levels and campaign validation.
+`src/game/rpg.ts`: pure combat, equipment, enemy/quest rewards, level-object interactions (`interactObject`, `objectStatus`), levels and campaign validation/migration.
+`src/game/level.ts`: Chapter I level data (regions, gates, objects, enemies, objectives) plus pure navigation (walkability, grid Dijkstra with clearance, smoothing) and progression rules. Decision 0005.
+`src/game/taskBank.ts`: authored, oracle-tested world-puzzle tasks and deterministic per-expedition rotation. See docs/TASK_BANK.md.
 `src/game/profiles.ts`: hero archive and active save persistence; preflight validation and rollback on synchronous write failure.
 `src/game/state.ts`: typed serialisable state, rewards, encounter lifecycle, topic summaries; no browser or renderer imports.
 `src/game/save.ts`: validate unknown imports, local persistence and backup before import.
-`src/game/world.ts`: procedural scene, reusable mesh factories, animation, movement, hit testing; callbacks for nearby target. Destroy all GPU resources and listeners on unmount.
+`src/game/world.ts`: procedural scene built from level data, reusable mesh factories, chunked static batching, follow camera, path-following movement, gate/object animation and hit testing; callbacks for nearby objects, blocked routes and arrivals. Destroy all GPU resources and listeners on unmount.
+`src/components/TrailMap.tsx`: SVG trail map derived from level data and progress.
 `src/components/World.tsx`: renderer lifecycle adapter.
 `src/App.tsx`: player flow, focus state, modal navigation and state persistence.
 `src/styles.css` and `src/fighter.css`: responsive HUD, menus, quick runes and inventory. Locally bundled Cinzel/Crimson Pro fonts.
@@ -32,7 +35,7 @@ Version + profile + settings + seed + expedition + completed encounter IDs + gua
 
 ## World generation
 
-Seeded bounded clearings now; guaranteed reachable landmarks and reserved clear paths. Repeated expeditions change decoration and question sequence. Infinite terrain later: chunk coordinates + world seed, hashed chunk generators, shared border constraints, narrative encounter budgets, deterministic IDs, persistent sparse modifications and unloading of distant chunks. Infinite randomness without pacing is not a game; story gates and deliberate landmarks remain authored.
+Chapter I is authored data (level.ts): rectangle-union clearings, gate corridors and fixed beats, with seeded decoration only. Reachability is a tested property, not a hope. Repeated expeditions change decoration and question sequence. Infinite terrain later: chunk coordinates + world seed, hashed chunk generators, shared border constraints, narrative encounter budgets, deterministic IDs, persistent sparse modifications and unloading of distant chunks. Infinite randomness without pacing is not a game; story gates and deliberate landmarks remain authored.
 
 ## Future cloud sync
 

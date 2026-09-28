@@ -2,6 +2,18 @@
 import type { Topic } from './math';
 import { moveInventoryItem, reconcileInventory, validateInventoryLayout } from './inventory';
 import type { InventoryDestination, InventoryLayout } from './inventory';
+import {
+  ENEMY_DEFINITIONS,
+  GATES,
+  OBJECTIVES,
+  enemyAccessible,
+  makeLoot,
+  objectAvailable,
+  objectById,
+  openGates,
+} from './level';
+import type { EnemyKey, GateId, LevelView, RegionId } from './level';
+export { ENEMY_DEFINITIONS } from './level';
 
 export type ClassId = 'warden' | 'ranger' | 'arcanist';
 export type Zone = 'village' | 'wilds';
@@ -20,8 +32,14 @@ export type Item = {
 };
 export type Enemy = {
   id: string;
+  /** Stable level-design identity; `id` also carries the expedition. */
+  key: EnemyKey;
+  region: RegionId;
+  rank: 'minion' | 'elite' | 'boss';
+  /** Readable wind-up line shown when this enemy telegraphs an attack. */
+  tell: string;
   name: string;
-  kind: 'beast' | 'pirate' | 'guardian';
+  kind: 'beast' | 'pirate' | 'guardian' | 'spirit';
   x: number;
   z: number;
   hp: number;
@@ -46,6 +64,8 @@ export type RpgState = {
   equipment: Record<ItemSlot, string | null>;
   enemies: Enemy[];
   defeated: number;
+  /** Level objects (chests, locks, seals, lore) resolved; see level.ts persistence rules. */
+  resolved: string[];
   questClaimed: boolean;
   lastReward: string;
 };
@@ -119,98 +139,13 @@ export const QUEST = {
   name: 'The Broken Compass',
   giver: 'Scout Mira',
   description:
-    'Drive back four threats on the jungle trail and overcome the Shard Guardian. Return to Mira in Haven for your compass fragment.',
-  target: 5,
+    'Follow the Emerald Trail north. Lower the rope bridge, break into Captain Redsail’s stockade, unseal the ancient sanctum and overcome the Shard Guardian. Bring the compass fragment back to Mira in Haven.',
   gold: 80,
   xp: 100,
 };
-export const ENEMY_DEFINITIONS = [
-  {
-    name: 'Bramble Prowler',
-    kind: 'beast',
-    x: -3,
-    z: 5,
-    maxHp: 20,
-    attack: 5,
-    xp: 35,
-    gold: 12,
-    topic: 'fractions',
-  },
-  {
-    name: 'Canopy Raider',
-    kind: 'pirate',
-    x: 3,
-    z: 4,
-    maxHp: 27,
-    attack: 7,
-    xp: 40,
-    gold: 16,
-    topic: 'multiplication',
-  },
-  {
-    name: 'Thornback Boar',
-    kind: 'beast',
-    x: -3,
-    z: -1,
-    maxHp: 30,
-    attack: 8,
-    xp: 45,
-    gold: 20,
-    topic: 'geometry',
-  },
-  {
-    name: 'Corsair Lookout',
-    kind: 'pirate',
-    x: 4,
-    z: -2,
-    maxHp: 34,
-    attack: 8,
-    xp: 50,
-    gold: 24,
-    topic: 'percentages',
-  },
-  {
-    name: 'Shard Guardian',
-    kind: 'guardian',
-    x: 0,
-    z: -6,
-    maxHp: 76,
-    attack: 11,
-    xp: 90,
-    gold: 45,
-    topic: 'division',
-  },
-] satisfies Omit<Enemy, 'id' | 'hp'>[];
 const TOPICS: Topic[] = ['fractions', 'multiplication', 'geometry', 'percentages', 'division'];
-const LOOT = [
-  {
-    name: 'Tidefang',
-    slot: 'weapon',
-    description: 'A serrated jade blade forged where the two rivers meet.',
-  },
-  {
-    name: 'Canopy Mantle',
-    slot: 'armour',
-    description: 'Layered leaves and bronze scales turn aside thorn and arrow.',
-  },
-  {
-    name: 'Ember Prism',
-    slot: 'relic',
-    description: 'A warm prism that gathers the patterns of a forgotten fire.',
-  },
-  {
-    name: 'Corsair Runeblade',
-    slot: 'weapon',
-    description: 'A captured blade etched with the marks of distant islands.',
-  },
-  {
-    name: 'Compass of Unity',
-    slot: 'relic',
-    description: 'A legendary compass fragment. Its light grows with your understanding.',
-  },
-] satisfies { name: string; slot: ItemSlot; description: string }[];
 const makeEnemies = (expedition: number): Enemy[] =>
-  ENEMY_DEFINITIONS.map((e, i) => {
+  ENEMY_DEFINITIONS.map(({ loot: _loot, ...e }, i) => {
     const scale = Math.min(expedition - 1, 20);
     const maxHp = e.maxHp + scale * 3;
     return {
@@ -221,6 +156,11 @@ const makeEnemies = (expedition: number): Enemy[] =>
       attack: e.attack + Math.floor(scale / 3),
     };
   });
+/** Level progress view: resolved objects and defeated enemy keys. */
+export const levelView = (s: Pick<RpgState, 'resolved' | 'enemies'>): LevelView => ({
+  resolved: s.resolved,
+  defeated: s.enemies.filter((e) => e.hp === 0).map((e) => e.key),
+});
 /** Character class and portrait are selected before creating the campaign. */
 export function freshRpg(classId: ClassId = 'warden', avatarId = '7'): RpgState {
   const starter: Item = {
@@ -248,6 +188,7 @@ export function freshRpg(classId: ClassId = 'warden', avatarId = '7'): RpgState 
     equipment: { weapon: starter.id, armour: null, relic: null },
     enemies: makeEnemies(1),
     defeated: 0,
+    resolved: [],
     questClaimed: false,
     lastReward: 'Welcome to Haven. Scout Mira has a mission for you.',
   };
@@ -314,28 +255,115 @@ export function equipmentPreview(s: RpgState, itemId: string): EquipmentPreview 
     next: combatStats({ ...s, equipment: { ...s.equipment, [item.slot]: item.id } }),
   };
 }
+/** The quest is complete when the guardian falls; optional threats and treasure stay optional. */
 export function questProgress(s: RpgState) {
-  const current = s.enemies.filter((e) => e.hp === 0).length;
+  const view = levelView(s);
+  const current = OBJECTIVES.filter((o) => o.done(view)).length;
+  const guardian = s.enemies.find((e) => e.rank === 'boss');
   return {
     current,
-    target: QUEST.target,
-    ready: current === QUEST.target && !s.questClaimed,
+    target: OBJECTIVES.length,
+    ready: !!guardian && guardian.hp === 0 && !s.questClaimed,
     claimed: s.questClaimed,
   };
 }
 /** Loot is guaranteed, reproducible and rotates topic affinity between expeditions. */
 export function lootFor(expedition: number, enemyIndex: number): Item {
-  const definition = LOOT[enemyIndex];
-  const boost = Math.min(expedition - 1, 20);
+  const spec = ENEMY_DEFINITIONS[enemyIndex].loot;
+  const topic = TOPICS[(enemyIndex + expedition - 1) % TOPICS.length];
+  return makeLoot({ ...spec, topic }, `trail-${expedition}-${enemyIndex}`, expedition);
+}
+/** Item id for a chest reward; story objects never repeat so they need no expedition. */
+export const objectLootId = (expedition: number, objectId: string) =>
+  `cache-${expedition}-${objectId}`;
+const MAX_ITEMS = 200;
+function grantItem(s: RpgState, item: Item): { state: RpgState; note: string } {
+  if (s.inventory.some((i) => i.id === item.id)) return { state: s, note: '' };
+  if (s.inventory.length >= MAX_ITEMS)
+    return {
+      state: { ...s, gold: Math.min(1e9, s.gold + 25) },
+      note: 'Pack full: treasure exchanged for 25 gold',
+    };
+  const inventory = [...s.inventory, item];
   return {
-    ...definition,
-    id: `loot-${expedition}-${enemyIndex}`,
-    rarity: enemyIndex === 4 ? 'legendary' : enemyIndex > 1 ? 'rare' : 'uncommon',
-    attack: definition.slot === 'armour' ? 0 : 4 + enemyIndex * 2 + boost,
-    defence: definition.slot === 'armour' ? 4 + boost : 0,
-    topic: TOPICS[(enemyIndex + expedition - 1) % TOPICS.length],
-    description: `${definition.description} Affinity: ${TOPICS[(enemyIndex + expedition - 1) % TOPICS.length]}.`,
+    state: {
+      ...s,
+      inventory,
+      inventoryLayout: reconcileInventory(inventory, s.equipment, s.inventoryLayout),
+    },
+    note: `${item.name} found`,
   };
+}
+function newlyOpened(before: Set<GateId>, after: Set<GateId>) {
+  return GATES.filter((g) => after.has(g.id) && !before.has(g.id));
+}
+function withLevelUp(before: RpgState, next: RpgState): RpgState {
+  if (combatStats(next).level <= combatStats(before).level) return next;
+  return {
+    ...next,
+    hp: combatStats(next).maxHp,
+    lastReward: `${next.lastReward} LEVEL UP — ${combatStats(next).level}! Health restored.`,
+  };
+}
+export type ObjectCheck =
+  | { ok: true }
+  | { ok: false; reason: 'unknown' | 'village' | 'resolved' | 'locked'; message: string };
+/** Why an object can or cannot be used right now; the UI shows the message verbatim. */
+export function objectStatus(s: RpgState, objectId: string): ObjectCheck {
+  const object = objectById(objectId);
+  if (!object) return { ok: false, reason: 'unknown', message: 'Nothing to do here.' };
+  if (s.zone !== 'wilds')
+    return { ok: false, reason: 'village', message: 'That is out on the trail.' };
+  if (s.resolved.includes(object.id))
+    return {
+      ok: false,
+      reason: 'resolved',
+      message: object.kind === 'lore' ? 'You have already read this.' : 'Already done.',
+    };
+  if (!objectAvailable(object, levelView(s)))
+    return {
+      ok: false,
+      reason: 'locked',
+      message: object.lockedHint ?? 'You cannot reach that yet.',
+    };
+  return { ok: true };
+}
+/**
+ * Resolve a level object once. The caller verifies any maths; a failed answer
+ * never costs health or spends the object, so the player can retry freely.
+ */
+export function interactObject(s: RpgState, objectId: string, success = true): RpgState {
+  const object = objectById(objectId);
+  if (!object || !objectStatus(s, objectId).ok) return s;
+  if (!success)
+    return {
+      ...s,
+      lastReward: `${object.name} stays shut. Nothing is lost — check your working or use a hint.`,
+    };
+  const before = openGates(levelView(s));
+  const reward = object.reward;
+  let next: RpgState = {
+    ...s,
+    resolved: [...s.resolved, object.id],
+    xp: Math.min(1e9, s.xp + reward.xp),
+    gold: Math.min(1e9, s.gold + reward.gold),
+    potions: Math.min(1000, s.potions + (reward.potions ?? 0)),
+    hp: reward.heal ? combatStats(s).maxHp : s.hp,
+  };
+  const notes = [object.successText];
+  if (reward.xp) notes.push(`+${reward.xp} XP`);
+  if (reward.gold) notes.push(`+${reward.gold} gold`);
+  if (reward.potions) notes.push(`+${reward.potions} draught`);
+  if (reward.loot) {
+    const granted = grantItem(
+      next,
+      makeLoot(reward.loot, objectLootId(s.expedition, object.id), s.expedition),
+    );
+    next = granted.state;
+    if (granted.note) notes.push(granted.note);
+  }
+  for (const gate of newlyOpened(before, openGates(levelView(next)))) notes.push(gate.openedText);
+  return withLevelUp(s, { ...next, lastReward: notes.join(' · ') });
 }
 /** Caller verifies the maths; unsuccessful answers never award or erase loot/XP. */
 export function attackEnemy(
@@ -349,7 +377,8 @@ export function attackEnemy(
     s.zone !== 'wilds' ||
     index < 0 ||
     s.enemies[index].hp === 0 ||
-    !Object.hasOwn(ACTIONS, action)
+    !Object.hasOwn(ACTIONS, action) ||
+    !enemyAccessible(s.enemies[index].key, levelView(s))
   )
     return s;
   const enemy = s.enemies[index];
@@ -380,28 +409,26 @@ export function attackEnemy(
       enemies,
       lastReward: `${ACTIONS[action].name}: ${damage} damage! ${enemy.name} has ${hp} health left.`,
     };
-  const loot = lootFor(s.expedition, index);
-  const inventoryFull = s.inventory.length >= 200;
-  let next: RpgState = {
-    ...s,
-    enemies,
-    inventory: inventoryFull ? s.inventory : [...s.inventory, loot],
-    xp: Math.min(1e9, s.xp + enemy.xp),
-    gold: Math.min(1e9, s.gold + enemy.gold + (inventoryFull ? 25 : 0)),
-    defeated: Math.min(1e9, s.defeated + 1),
-    lastReward: `${enemy.name} ${enemy.kind === 'beast' ? 'retreats' : 'defeated'}! +${enemy.xp} XP · +${enemy.gold} gold · ${inventoryFull ? 'Pack full: treasure exchanged for 25 gold' : loot.name + ' found'}.`,
+  const before = openGates(levelView(s));
+  const granted = grantItem(
+    {
+      ...s,
+      enemies,
+      xp: Math.min(1e9, s.xp + enemy.xp),
+      gold: Math.min(1e9, s.gold + enemy.gold),
+      defeated: Math.min(1e9, s.defeated + 1),
+    },
+    lootFor(s.expedition, index),
+  );
+  const gates = newlyOpened(before, openGates(levelView(granted.state))).map((g) => g.openedText);
+  const next: RpgState = {
+    ...granted.state,
+    lastReward: [
+      `${enemy.name} ${enemy.kind === 'beast' ? 'retreats' : 'defeated'}! +${enemy.xp} XP · +${enemy.gold} gold · ${granted.note}.`,
+      ...gates,
+    ].join(' '),
   };
-  next = {
-    ...next,
-    inventoryLayout: reconcileInventory(next.inventory, next.equipment, s.inventoryLayout),
-  };
-  if (combatStats(next).level > stats.level)
-    next = {
-      ...next,
-      hp: combatStats(next).maxHp,
-      lastReward: `${next.lastReward} LEVEL UP — ${combatStats(next).level}! Health restored.`,
-    };
-  return next;
+  return withLevelUp(s, next);
 }
 export function equipItem(s: RpgState, itemId: string): RpgState {
   const item = s.inventory.find((i) => i.id === itemId);
@@ -482,6 +509,8 @@ export function enterZone(s: RpgState, zone: Zone): RpgState {
       zone,
       expedition: s.expedition + 1,
       enemies: makeEnemies(s.expedition + 1),
+      // Story shortcuts (bridge, stockade lock, lore) persist; chests, shrine and seals reset.
+      resolved: s.resolved.filter((id) => objectById(id)?.persistence === 'story'),
       questClaimed: false,
       lastReward:
         'A new compass fragment calls from the wilds. A fresh trail and new treasures await.',
@@ -489,7 +518,7 @@ export function enterZone(s: RpgState, zone: Zone): RpgState {
   return {
     ...s,
     zone,
-    lastReward: 'Into the Emerald Wilds. Click a creature to choose your attack.',
+    lastReward: 'Waterfall Landing. Follow Mira’s trail marks north — click the ground to move.',
   };
 }
 export function claimQuest(s: RpgState): RpgState {
@@ -536,7 +565,10 @@ export function validateRpg(value: unknown): RpgState {
     value.inventory.length > 200 ||
     !object(value.equipment) ||
     !Array.isArray(value.enemies) ||
-    value.enemies.length !== ENEMY_DEFINITIONS.length
+    (value.resolved !== undefined &&
+      (!Array.isArray(value.resolved) ||
+        value.resolved.some((id) => typeof id !== 'string' || !objectById(id)) ||
+        new Set(value.resolved).size !== value.resolved.length))
   )
     return fail();
   const inventory: Item[] = value.inventory.map((raw) => {
@@ -584,16 +616,28 @@ export function validateRpg(value: unknown): RpgState {
       ? reconcileInventory(inventory, equipment)
       : validateInventoryLayout(value.inventoryLayout, inventory, equipment);
   const expected = makeEnemies(value.expedition as number);
-  const enemies = value.enemies.map((raw, i) => {
-    const e = expected[i];
-    if (
-      !object(raw) ||
-      !int(raw.hp, 0, e.maxHp) ||
-      Object.keys(e).some((k) => k !== 'hp' && raw[k] !== e[k as keyof Enemy])
-    )
-      return fail();
-    return { ...e, hp: raw.hp as number };
-  });
+  // Saves from before the Emerald Trail level had five keyless enemies. Keep a
+  // finished trail finished (so a ready quest stays claimable); otherwise the
+  // new, longer trail starts fresh. Items, XP and gold are untouched.
+  const legacyLayout =
+    value.enemies.length === 5 &&
+    value.enemies.every((raw) => object(raw) && raw.key === undefined && int(raw.hp, 0, 10000));
+  const legacyCleared =
+    legacyLayout && value.enemies.every((raw) => (raw as Record<string, unknown>).hp === 0);
+  if (!legacyLayout && value.enemies.length !== ENEMY_DEFINITIONS.length) return fail();
+  const enemies = legacyLayout
+    ? expected.map((e) => ({ ...e, hp: legacyCleared ? 0 : e.maxHp }))
+    : value.enemies.map((raw, i) => {
+        const e = expected[i];
+        if (
+          !object(raw) ||
+          !int(raw.hp, 0, e.maxHp) ||
+          Object.keys(e).some((k) => k !== 'hp' && raw[k] !== e[k as keyof Enemy])
+        )
+          return fail();
+        return { ...e, hp: raw.hp as number };
+      });
+  const resolved = legacyLayout ? [] : ((value.resolved as string[] | undefined) ?? []);
   const state: RpgState = {
     version: 1,
     classId: value.classId as ClassId,
@@ -608,13 +652,16 @@ export function validateRpg(value: unknown): RpgState {
     inventoryLayout,
     equipment,
     enemies,
-    defeated: value.defeated as number,
+    defeated: legacyCleared
+      ? Math.max(value.defeated as number, enemies.length)
+      : (value.defeated as number),
+    resolved: [...resolved],
     questClaimed: value.questClaimed,
     lastReward: value.lastReward,
   };
   if (
     state.hp > combatStats(state).maxHp ||
-    (state.questClaimed && !enemies.every((e) => e.hp === 0)) ||
+    (state.questClaimed && !enemies.some((e) => e.rank === 'boss' && e.hp === 0)) ||
     state.defeated < enemies.filter((e) => e.hp === 0).length
   )
     return fail();

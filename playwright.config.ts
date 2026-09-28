@@ -10,7 +10,11 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
-    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+    launchOptions: {
+      // Optional override for machines whose preinstalled Chromium differs from Playwright's pin.
+      executablePath: process.env.FF_CHROMIUM_PATH || undefined,
+      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+    },
   },
   webServer: {
     command: `npm run preview -- --port ${previewPort} --strictPort`,

@@ -5,7 +5,9 @@
 Run `npm ci`, then `npm run check`, then `npm run test:e2e`. The browser suite starts the **built production bundle** on port 4173; it intentionally does not test a live-reloading dev session. Install the browser once with `npx playwright install chromium`. CI installs browser OS dependencies as well.
 
 - Pure domain checks cover legacy maths/state, action-tier maths, independent prompt-derived exact comparisons, RPG rewards/equipment, armour/defence, and transactional save/profile validation.
-- Browser expedition covers menu → new hero → Haven → five enemies, wrong answer/hint/retry, loot/equip, quest reward, reload, parent reporting, export/import and next expedition.
+- Level checks (`tests/level.test.ts`) prove region/object/enemy placement, that declared gates match physical connectivity (including closing each gate individually), continuous walkable routes, blocked-route explanations, safe spawn, objective order, claim-once objects, boss-gated chests, story persistence across expeditions and legacy five-enemy save migration.
+- Task-bank checks (`tests/taskBank.test.ts`) evaluate each puzzle's oracle with an independent BigInt-rational parser and check coverage, rotation, units and answer input.
+- Browser expedition covers menu → new hero → Haven → Emerald Trail (region banner, trail map, tracker), wrong answer/hint/retry, loot/equip, free chest, the full critical path (winch, code lock, captain, three seals, guardian) with travel wards, quest reward, reload, parent reporting, export/import and the next expedition with persisted shortcuts.
 - Separate-hero/settings checks cover save restoration, keyboard shortcuts, focus, invalid import and compact layout.
 - Timer/defence checks distinguish harmless offensive quick-rune expiry from armour-mitigated defensive expiry/wrong answers; verify successful blocking, telegraph and protected long-task time.
 
@@ -25,6 +27,10 @@ Math tests use exact integer / BigInt arithmetic where floating-point noise coul
 Use original questions and pseudonymous local profiles. Ask the child to explain what the game asks them to do, watch without coaching for the first minute, then observe where maths interrupts the fantasy or movement confuses them. At 10 and 20 minutes, offer a natural stopping point. Record observations rather than claiming an engagement score.
 
 Questions for the owner: Did the child voluntarily pursue the next discovery? Could they explain one method? Did a wrong answer feel safe? Was the reward worth the effort? Which topic needs more variety? Use results to choose the next vertical feature, especially click combat and more satisfying spell effects.
+
+## Machines whose preinstalled Chromium differs from Playwright's pin
+
+Set `FF_CHROMIUM_PATH` to an existing Chromium binary (for example `/opt/pw-browsers/chromium` in cloud containers) instead of downloading. In software-rendered containers the 3D scene may run at 1–3 fps, so the full journey can take many minutes. That speed is not a laptop benchmark.
 
 ## Explicit local preview port
 

@@ -136,7 +136,8 @@ export function makeQuestion(
   };
 }
 export function isCorrect(question: Question, input: string): boolean {
-  const clean = input.trim();
+  // Accept thousands separators such as 2,852 for larger world-puzzle answers.
+  const clean = input.trim().replace(/(\d),(?=\d{3}(?:\D|$))/g, '$1');
   if (question.choices) return clean === question.answer;
   return /^\d+(?:\.\d+)?$/.test(clean) && Number(clean) === Number(question.answer);
 }

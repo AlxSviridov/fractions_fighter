@@ -6,6 +6,7 @@ import {
   enterZone,
   equipItem,
   freshRpg,
+  interactObject,
   lootFor,
   questProgress,
   usePotion,
@@ -13,40 +14,61 @@ import {
 } from '../src/game/rpg';
 import type { RpgState } from '../src/game/rpg';
 const start = () => enterZone(freshRpg(), 'wilds');
+const byKey = (s: RpgState, key: string) => s.enemies.find((e) => e.key === key)!;
+/** Open every gate by playing the critical path, so any encounter is in reach. */
+const openTrail = (s: RpgState) => {
+  let n = ['bridge-winch', 'stockade-lock'].reduce((m, id) => interactObject(m, id), s);
+  while (byKey(n, 'captain').hp > 0) n = attackEnemy(n, byKey(n, 'captain').id, 'ritual', true);
+  return ['seal-west', 'seal-east', 'seal-heart'].reduce((m, id) => interactObject(m, id), n);
+};
 const clear = (s: RpgState) =>
-  s.enemies.reduce((n, e) => {
+  openTrail(s).enemies.reduce((n, e) => {
     while (n.enemies.find((candidate) => candidate.id === e.id)!.hp > 0)
       n = attackEnemy(n, e.id, 'ritual', true);
     return n;
-  }, s);
+  }, openTrail(s));
 describe('Fractions Fighter campaign', () => {
-  it('starts with a real class, equipment, safe village and five immediate threats', () => {
+  it('starts with a real class, equipment, safe village and a nine-encounter trail', () => {
     const s = freshRpg('ranger', 'portrait-1');
     expect(s.zone).toBe('village');
     expect(s.avatarId).toBe('portrait-1');
-    expect(s.enemies).toHaveLength(5);
+    expect(s.enemies).toHaveLength(9);
+    expect(s.enemies.map((e) => e.rank)).toEqual([
+      'minion',
+      'minion',
+      'elite',
+      'minion',
+      'minion',
+      'minion',
+      'elite',
+      'elite',
+      'boss',
+    ]);
     expect(combatStats(s).attack).toBe(14);
     expect(attackEnemy(s, s.enemies[0].id, 'strike', true)).toBe(s);
   });
-  it('ordinary enemies take 1–3 short answers and hard rituals defeat the first boss outright', () => {
-    for (const enemy of start().enemies.slice(0, 4)) {
-      let s = start();
+  it('minions take 1–3 quick strikes; the guardian is a real two-ritual boss fight', () => {
+    const open = openTrail(start());
+    for (const enemy of open.enemies.filter((e) => e.rank === 'minion')) {
+      let s = open;
       let hits = 0;
       while (s.enemies.find((e) => e.id === enemy.id)!.hp > 0) {
         s = attackEnemy(s, enemy.id, 'strike', true);
         hits++;
       }
-      expect(hits).toBeLessThanOrEqual(3);
+      expect(hits, enemy.name).toBeLessThanOrEqual(3);
     }
-    const s = start();
-    expect(attackEnemy(s, s.enemies[4].id, 'ritual', true).enemies[4].hp).toBe(0);
+    const guardian = byKey(open, 'guardian');
+    const once = attackEnemy(open, guardian.id, 'ritual', true);
+    expect(byKey(once, 'guardian').hp).toBeGreaterThan(0);
+    expect(byKey(attackEnemy(once, guardian.id, 'ritual', true), 'guardian').hp).toBe(0);
   });
   it('awards deterministic treasure once and equipping changes real stats', () => {
     const s = start();
     const n = attackEnemy(s, s.enemies[0].id, 'power', true);
-    expect(s.enemies[0].hp).toBe(20);
-    expect(n.xp).toBe(35);
-    expect(n.gold).toBe(12);
+    expect(s.enemies[0].hp).toBe(16);
+    expect(n.xp).toBe(25);
+    expect(n.gold).toBe(8);
     expect(n.inventory[1]).toEqual(lootFor(1, 0));
     expect(attackEnemy(n, n.enemies[0].id, 'power', true)).toBe(n);
     expect(combatStats(equipItem(n, n.inventory[1].id)).attack).toBe(14);
@@ -57,7 +79,7 @@ describe('Fractions Fighter campaign', () => {
     const n = attackEnemy(s, s.enemies[0].id, 'strike', false);
     expect(n.xp).toBe(0);
     expect(n.enemies).toEqual(s.enemies);
-    expect(n.hp).toBe(98);
+    expect(n.hp).toBe(99);
     expect(usePotion(n).hp).toBe(100);
     expect(usePotion(n).potions).toBe(2);
     expect(usePotion(s)).toBe(s);
@@ -76,16 +98,18 @@ describe('Fractions Fighter campaign', () => {
     const s = clear(start());
     expect(questProgress(s).ready).toBe(true);
     expect(claimQuest(s)).toBe(s);
-    const rewarded = claimQuest(enterZone(s, 'village'));
-    expect(rewarded.gold).toBe(197);
-    expect(rewarded.xp).toBe(360);
-    expect(combatStats(rewarded).level).toBe(4);
+    const home = enterZone(s, 'village');
+    const rewarded = claimQuest(home);
+    expect(rewarded.gold).toBe(home.gold + 80);
+    expect(rewarded.xp).toBe(home.xp + 100);
+    expect(combatStats(rewarded).level).toBeGreaterThan(combatStats(start()).level);
     expect(claimQuest(rewarded)).toBe(rewarded);
     const next = enterZone(rewarded, 'wilds');
     expect(next.expedition).toBe(2);
     expect(next.inventory).toEqual(s.inventory);
     expect(next.enemies.every((e) => e.hp === e.maxHp)).toBe(true);
-    expect(questProgress(next).current).toBe(0);
+    // Bridge and stockade stay open: two of five objectives carry over.
+    expect(questProgress(next).current).toBe(2);
     expect(lootFor(2, 0).topic).not.toBe(lootFor(1, 0).topic);
   });
   it('round-trips progression and rejects malformed or inconsistent imports', () => {
@@ -98,6 +122,7 @@ describe('Fractions Fighter campaign', () => {
       { ...s, equipment: { ...s.equipment, armour: s.inventory[0].id } },
       { ...freshRpg(), questClaimed: true },
       { ...s, enemies: [{ ...s.enemies[0], hp: -1 }, ...s.enemies.slice(1)] },
+      { ...s, enemies: s.enemies.slice(1) },
     ])
       expect(() => validateRpg(invalid)).toThrow();
   });
@@ -112,7 +137,7 @@ describe('Fractions Fighter campaign', () => {
     };
     const next = attackEnemy(s, s.enemies[0].id, 'power', true);
     expect(next.inventory).toHaveLength(200);
-    expect(next.gold).toBe(37);
+    expect(next.gold).toBe(33);
     expect(next.lastReward).toContain('25 gold');
   });
 });

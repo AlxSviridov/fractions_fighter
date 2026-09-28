@@ -1,6 +1,8 @@
 # Fractions Fighter — The Shattered Compass
 
 > Superseding direction (13 September 2026): [Engine rework](ENGINE_REWORK.md) and [increment plan](ENGINE_PLAN.md). Descriptions below include the legacy implemented build; resource combat and new interaction rules are planned until verified in STATE.
+>
+> Level design (28 September 2026): the wilds is now **Chapter I: The Emerald Trail**, an authored 8-area level with gates, puzzles, chests, lore and a boss. See [LEVEL_DESIGN.md](LEVEL_DESIGN.md) and the puzzle [task repository](TASK_BANK.md).
 
 Current design: 13 September 2026. Supersedes the rejected Verdant seal-puzzle prototype. Owner feedback is canonical in `feedback/2026-09-13-owner-review.md`; implementation evidence is in `memory/STATE.md`.
 
@@ -14,9 +16,10 @@ Original jungle fantasy for ages 9–11, laptop browser first. Melee, bows and r
 
 1. Main menu → New Game → choose name, one of six reference-inspired heroes and Warden/Ranger/Arcanist → enter Haven. Existing heroes remain in Load Game.
 2. Prepare in the safe village. Meet Mira through the quest panel, inspect equipment, recover health and draughts. Click the gate or Enter the wilds.
-3. Five enemies are available immediately: two animals, two pirates and a shard guardian. Click ground freely, click a monster to approach, choose an action. The trail list offers an accessible target shortcut.
-4. Solve a task appropriate to the chosen action. Show the attack and its consequence in the world; every defeated enemy awards gear, XP and gold. Compare equipment totals before equipping.
-5. Defeat the five threats, return to Mira, claim the compass quest reward, then begin another expedition. Equipment and learning evidence persist. Quitting after any resolved action is safe.
+3. Arrive at Waterfall Landing, the start of the Emerald Trail. A follow camera, trail map, region banners and a single current objective ("Guide me there") lead north through Fern Hollow, Tide Ford, the Corsair Stockade and the Sealed Antechamber to the Shard Sanctuary. Two optional detours (Mossy Grotto, Sunken Cove) hide puzzle chests.
+4. Nine encounters (minions, three elites and a boss) stay in their areas. Click a monster to approach and choose an action; solve a task appropriate to that action. Every defeat awards gear, XP and gold.
+5. Four gates shape the route: a bridge winch puzzle, a corsair code lock, a barricade that falls with Captain Redsail, and a sanctum door held by three rune seals. World puzzles are untimed, story-framed tasks from the reviewed [task bank](TASK_BANK.md); mistakes cost nothing. Chests, a healing shrine and lore stones reward exploration.
+6. Defeat the Shard Guardian, return to Mira, claim the compass quest reward, then begin another expedition. The bridge and stockade stay open (story shortcuts); chests, shrine and seals reset with new puzzle variants. Equipment and learning evidence persist. Quitting after any resolved action is safe.
 
 ## Thinking must be worth the action
 
@@ -40,7 +43,7 @@ Six supplied portraits are used directly. Their world models are original polygo
 
 ## Longer experience
 
-Build a 20–30 minute authored arc before infinite map streaming: Haven → river trail → pirate camp → guardian sanctuary, with optional discoveries and checkpoints every few minutes. Distinct enemies should telegraph distinct actions, not merely have different HP. A session should end with a new discovery, an earned improvement and an inviting next destination.
+Chapter I delivers the first authored arc (Haven → river → pirate stockade → guardian sanctuary) with optional discoveries and a checkpoint beat roughly every few minutes; see [LEVEL_DESIGN.md](LEVEL_DESIGN.md). Each enemy now has its own wind-up line, and elites are visibly larger, but attack patterns are still shared: distinct behaviours need the moving-enemy work (ENGINE_PLAN P6/P17). A session should end with a new discovery, an earned improvement and an inviting next destination.
 
 Later topic equipment can steer practice: percentage fireball, geometry mace, fraction shield. Depleting relic charges and diverse drop scheduling should encourage variety while preserving a usable favourite and a free fallback. No streak loss, paid random rewards or compulsory grind. A small skill constellation should unlock different approaches rather than only increasing numbers.
 

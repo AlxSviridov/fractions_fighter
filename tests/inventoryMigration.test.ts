@@ -67,11 +67,14 @@ describe('spatial inventory save integration', () => {
   it('keeps layout valid after combat rewards, equipment swaps and unequipping', () => {
     const initial = enterZone(freshRpg(), 'wilds');
     const rewarded = attackEnemy(initial, initial.enemies[0].id, 'power', true);
-    expect(Object.keys(rewarded.inventoryLayout.pack)).toEqual(['loot-1-0']);
-    const equipped = equipItem(rewarded, 'loot-1-0');
+    expect(Object.keys(rewarded.inventoryLayout.pack)).toEqual(['trail-1-0']);
+    const equipped = equipItem(rewarded, 'trail-1-0');
     expect(Object.keys(equipped.inventoryLayout.pack)).toEqual(['starter-weapon']);
     const stored = unequipItem(equipped, 'weapon');
-    expect(Object.keys(stored.inventoryLayout.pack).sort()).toEqual(['loot-1-0', 'starter-weapon']);
+    expect(Object.keys(stored.inventoryLayout.pack).sort()).toEqual([
+      'starter-weapon',
+      'trail-1-0',
+    ]);
     for (const state of [initial, rewarded, equipped, stored]) {
       expect(validateRpg(JSON.parse(JSON.stringify(state)))).toEqual(state);
     }

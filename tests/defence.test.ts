@@ -3,7 +3,8 @@ import { defencePreview, resolveDefence } from '../src/game/defence';
 import { enterZone, equipItem, freshRpg, lootFor } from '../src/game/rpg';
 
 const wilds = () => enterZone(freshRpg(), 'wilds');
-const guardianId = 'e1-4';
+// The Shard Guardian is the last encounter on the Emerald Trail.
+const guardianId = 'e1-8';
 
 describe('enemy defence', () => {
   it('shows armour absorption and lowers the damage from a hit', () => {
@@ -14,8 +15,8 @@ describe('enemy defence', () => {
       armour.id,
     );
 
-    expect(defencePreview(unarmoured, guardianId)).toEqual({ incoming: 11, armour: 3, damage: 8 });
-    expect(defencePreview(armoured, guardianId)).toEqual({ incoming: 11, armour: 7, damage: 4 });
+    expect(defencePreview(unarmoured, guardianId)).toEqual({ incoming: 12, armour: 3, damage: 9 });
+    expect(defencePreview(armoured, guardianId)).toEqual({ incoming: 12, armour: 6, damage: 6 });
   });
 
   it('treats a block as an idempotent no-reward outcome', () => {

@@ -1,8 +1,24 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { LANDMARKS } from './state';
 import type { Profile, Save } from './state';
 import { random } from './math';
+import {
+  ENEMY_DEFINITIONS,
+  GATES,
+  INTERACT_RANGE,
+  LEVEL_BOUNDS,
+  LEVEL_OBJECTS,
+  REGIONS,
+  RIVER,
+  SPAWN,
+  findPath,
+  isWalkable,
+  nearestWalkable,
+  objectAvailable,
+  objectById,
+  openGates,
+} from './level';
+import type { EnemyKey, GateId, LevelView } from './level';
 
 export const SKINS = ['#f2cead', '#c99068', '#935f43', '#573927'];
 export const OUTFITS = ['#d5b679', '#698f82', '#a97458', '#5dc5b3'];
@@ -146,7 +162,17 @@ export type ExplorerAppearance = Profile & {
 };
 export type RpgWorldSnapshot = {
   zone: 'village' | 'wilds';
-  enemies: Array<{ id: string; x: number; z: number; hp: number; maxHp: number; kind: string }>;
+  enemies: Array<{
+    id: string;
+    key?: string;
+    rank?: string;
+    x: number;
+    z: number;
+    hp: number;
+    maxHp: number;
+    kind: string;
+  }>;
+  resolved?: string[];
   avatarId?: string;
   classId?: string;
   equipment?: ExplorerAppearance['equipment'];
@@ -419,6 +445,8 @@ export type WorldOptions = {
   onReady: () => void;
   onEnemyInteract?: (id: string) => void;
   onZoneInteract?: (zone: 'village' | 'wilds') => void;
+  /** A click could not be reached because a gate is still closed. */
+  onBlocked?: (message: string) => void;
 };
 export class JungleWorld {
   scene = new THREE.Scene();
@@ -446,9 +474,13 @@ export class JungleWorld {
   private paused = true;
   private motion = false;
   private nearby: string | null = null;
-  private markers = new Map<string, THREE.Group>();
-  private relics: THREE.Object3D[] = [];
-  private guardian = new THREE.Group();
+  private gateMeshes = new Map<GateId, THREE.Group>();
+  private objectMeshes = new Map<string, THREE.Group>();
+  private open = new Set<GateId>();
+  private route: THREE.Vector3[] = [];
+  private sun: THREE.DirectionalLight;
+  private look = new THREE.Vector3(0, 0, -1);
+  private snapCamera = true;
   private water: THREE.Mesh[] = [];
   private fire: THREE.Object3D[] = [];
   private resizeObserver: ResizeObserver;
@@ -457,7 +489,6 @@ export class JungleWorld {
   private particles: THREE.Points;
   private positionTick = 0;
   private burst: THREE.Group | null = null;
-  private bossHome = new THREE.Vector3(0, 1.2, -9.2);
   constructor(
     private host: HTMLElement,
     save: Save,
@@ -485,7 +516,7 @@ export class JungleWorld {
     this.camera.position.set(25, 30, 32);
     this.camera.lookAt(0, 0, -1);
     this.scene.add(new THREE.HemisphereLight('#f4edd0', '#304a3e', 1.9));
-    const sun = new THREE.DirectionalLight('#ffe2a5', 2.7);
+    const sun = (this.sun = new THREE.DirectionalLight('#ffe2a5', 2.7));
     sun.position.set(-12, 23, 8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -500,36 +531,35 @@ export class JungleWorld {
     sun.shadow.bias = -0.0007;
     sun.shadow.normalBias = 0.04;
     this.scene.add(sun);
+    this.scene.add(sun.target);
     const rim = new THREE.DirectionalLight('#9df2d6', 1.6);
     rim.position.set(8, 10, -14);
     this.scene.add(rim);
-    this.buildTerrain(save.seed);
-    this.buildTemple();
-    this.buildCamp();
-    this.buildWildsLandmarks();
+    this.buildLevelTerrain(save.seed);
     this.batchStaticMeshes();
-    this.buildLandmarks();
-    this.buildGuardian();
     // Keep the authored wilds and settlement as independently visible scene layers.
     for (const child of [...this.scene.children]) {
       if (!(child instanceof THREE.Light)) this.wildsScene.add(child);
     }
     this.scene.add(this.wildsScene);
+    this.buildGates();
+    this.buildObjects();
     this.buildVillage();
     this.villageScene.visible = false;
     this.scene.add(this.villageScene);
     this.batchStaticMeshes(this.villageScene);
     this.player = buildExplorer(save.profile);
-    this.player.position.set(0, 0, 7);
+    this.player.position.set(SPAWN.x, 0, SPAWN.z);
     this.player.rotation.y = Math.PI;
     this.scene.add(this.player);
     ring(this.player, '#e9d79e', 0.57, 0, 0);
+    // Fireflies drift around the camera focus rather than one fixed clearing.
     const points = new Float32Array(120 * 3);
     const rng = random(save.seed + 7);
     for (let i = 0; i < 120; i++) {
-      points[i * 3] = (rng() - 0.5) * 34;
+      points[i * 3] = (rng() - 0.5) * 38;
       points[i * 3 + 1] = rng() * 7 + 0.5;
-      points[i * 3 + 2] = (rng() - 0.5) * 30;
+      points[i * 3 + 2] = (rng() - 0.5) * 34;
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(points, 3));
@@ -559,10 +589,13 @@ export class JungleWorld {
     // Bake scenery transforms and merge by material; retain animated water/fire.
     // Hundreds of leaves and stones become a few dozen GPU draw calls.
     this.scene.updateMatrixWorld(true);
+    // Batches are also split into spatial chunks so the long trail can be
+    // frustum-culled: only the clearings near the camera are drawn.
     const groups = new Map<
-      THREE.Material,
-      { geometries: THREE.BufferGeometry[]; meshes: THREE.Mesh[] }
+      string,
+      { material: THREE.Material; geometries: THREE.BufferGeometry[]; meshes: THREE.Mesh[] }
     >();
+    const where = new THREE.Vector3();
     root.traverse((o) => {
       if (
         !(o instanceof THREE.Mesh) ||
@@ -573,14 +606,20 @@ export class JungleWorld {
         o.userData.interactive
       )
         return;
-      const group = groups.get(o.material) ?? { geometries: [], meshes: [] };
+      o.getWorldPosition(where);
+      const key = `${o.material.uuid}:${Math.floor(where.x / 16)}:${Math.floor(where.z / 12)}`;
+      const group = groups.get(key) ?? {
+        material: o.material,
+        geometries: [] as THREE.BufferGeometry[],
+        meshes: [] as THREE.Mesh[],
+      };
       const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
       g.applyMatrix4(o.matrixWorld);
       group.geometries.push(g);
       group.meshes.push(o);
-      groups.set(o.material, group);
+      groups.set(key, group);
     });
-    for (const [material, group] of groups) {
+    for (const { material, ...group } of groups.values()) {
       const merged = mergeGeometries(group.geometries, false);
       if (merged) {
         const batch = new THREE.Mesh(merged, material);
@@ -592,234 +631,460 @@ export class JungleWorld {
       group.geometries.forEach((g) => g.dispose());
     }
   }
-  private buildTerrain(seed: number) {
+  /**
+   * The Emerald Trail (see level.ts and docs/LEVEL_DESIGN.md). Static scenery
+   * is built here and later merged by material; gates, objects and enemies
+   * are dynamic and built separately so they can react to progress.
+   */
+  private buildLevelTerrain(seed: number) {
     const rng = random(seed),
       r = (min: number, max: number) => min + rng() * (max - min);
-    box(this.scene, '#39483c', 0, -1.6, 0, 36, 3, 32);
-    box(this.scene, '#5d704e', 0, -0.19, 0, 35.9, 0.4, 31.9);
-    box(this.scene, '#34463a', 0, -2.4, 0, 39, 0.6, 35);
-    const ground = mesh(this.scene, new THREE.PlaneGeometry(200, 200), '#344d42', 0, -3, 0);
+    const b = LEVEL_BOUNDS;
+    const cx = (b.minX + b.maxX) / 2,
+      cz = (b.minZ + b.maxZ) / 2;
+    const w = b.maxX - b.minX + 14,
+      d = b.maxZ - b.minZ + 14;
+    const ground = mesh(this.scene, new THREE.PlaneGeometry(260, 260), '#263b31', 0, -3, cz);
     ground.rotation.x = -Math.PI / 2;
-    // Faceted grassy patches break up the ground into natural colour fields.
-    for (let i = 0; i < 75; i++) {
-      const p = cylinder(
+    box(this.scene, '#2d4234', cx, -1.6, cz, w, 3, d);
+    box(this.scene, '#3e5a43', cx, -0.14, cz, w - 0.2, 0.3, d - 0.2);
+    // Region floors are lighter clearings cut into the darker forest floor.
+    for (const region of REGIONS)
+      for (const rect of region.rects) {
+        box(
+          this.scene,
+          region.ground,
+          (rect.minX + rect.maxX) / 2,
+          -0.02,
+          (rect.minZ + rect.maxZ) / 2,
+          rect.maxX - rect.minX + 1.2,
+          0.1,
+          rect.maxZ - rect.minZ + 1.2,
+        );
+        const patches = Math.round(((rect.maxX - rect.minX) * (rect.maxZ - rect.minZ)) / 14);
+        for (let i = 0; i < patches; i++) {
+          const p = cylinder(
+            this.scene,
+            ['#647750', '#61724c', '#566c48', '#6c7c53', '#72805a'][i % 5],
+            r(rect.minX, rect.maxX),
+            0.04,
+            r(rect.minZ, rect.maxZ),
+            r(0.5, 1.6),
+            r(0.5, 1.6),
+            0.02,
+            7,
+          );
+          p.rotation.y = r(0, 6);
+        }
+      }
+    for (const gate of GATES)
+      box(
         this.scene,
-        ['#647750', '#61724c', '#566c48', '#6c7c53'][i % 4],
-        r(-17, 17),
-        0.018,
-        r(-15, 15),
-        r(0.6, 2),
-        r(0.6, 2),
-        0.018,
-        7,
+        '#6d6a50',
+        (gate.rect.minX + gate.rect.maxX) / 2,
+        -0.03,
+        (gate.rect.minZ + gate.rect.maxZ) / 2,
+        gate.rect.maxX - gate.rect.minX + 0.6,
+        0.1,
+        gate.rect.maxZ - gate.rect.minZ,
       );
-      p.rotation.y = r(0, 6);
-    }
-    // A shallow turquoise river along the eastern edge, with stones and ripples.
-    for (let i = 0; i < 20; i++) {
-      const z = -14 + i * 1.5,
-        x = 11.1 + Math.sin(z * 0.23) * 1.9;
-      const m = cylinder(
+    // River: an animated band crossed only by the rope bridge.
+    const riverZ = (RIVER.minZ + RIVER.maxZ) / 2,
+      riverDepth = RIVER.maxZ - RIVER.minZ;
+    box(this.scene, '#23413c', cx, -0.18, riverZ, w, 0.2, riverDepth + 0.6);
+    for (let i = 0; i < 16; i++) {
+      const x = b.minX - 6 + i * ((w + 2) / 15);
+      const water = cylinder(
         this.scene,
         i % 2 ? '#368f84' : '#3e9e92',
         x,
-        0.07,
-        z,
-        2.05,
-        2.05,
-        0.11,
+        0.02,
+        riverZ + Math.sin(i * 0.8) * 0.3,
+        2.6,
+        2.6,
+        0.1,
         9,
       );
-      this.water.push(m);
-      for (const side of [-1, 1]) {
-        const stone = rock(
-          this.scene,
-          ['#818774', '#93957c'][i % 2],
-          x + side * 2,
-          0.13,
-          z,
-          r(0.35, 0.65),
-        );
-        stone.rotation.y = r(0, 6);
-      }
+      water.scale.z = riverDepth / 5.2;
+      this.water.push(water);
       if (i % 2 === 0) {
-        const foam = box(this.scene, '#a7d2b3', x, 0.135, z, r(0.4, 1.2), 0.015, 0.04);
+        const foam = box(
+          this.scene,
+          '#a7d2b3',
+          x,
+          0.09,
+          riverZ + r(-1.5, 1.5),
+          r(0.5, 1.4),
+          0.015,
+          0.05,
+        );
         this.water.push(foam);
       }
-    }
-    // Hand-authored connected paths, generated stepping stones.
-    const path = (a: number[], b: number[]) => {
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      for (let t = 0; t <= len; t += 0.72) {
-        const x = a[0] + ((b[0] - a[0]) * t) / len,
-          z = a[1] + ((b[1] - a[1]) * t) / len;
-        const stone = cylinder(
+      for (const side of [-1, 1])
+        rock(
           this.scene,
-          ['#afaa84', '#a7a681', '#b9b28a'][Math.floor(r(0, 3))],
-          x + r(-0.17, 0.17),
-          0.045,
-          z + r(-0.16, 0.16),
-          r(0.36, 0.54),
-          0.5,
-          0.08,
-          5,
+          ['#818774', '#93957c'][i % 2],
+          x + r(-0.8, 0.8),
+          0.1,
+          riverZ + side * (riverDepth / 2 + 0.1),
+          r(0.3, 0.6),
         );
-        stone.rotation.y = r(0, 6);
+    }
+    // Stepping-stone trails join the beats of the level.
+    const path = (points: Array<[number, number]>) => {
+      for (let p = 0; p < points.length - 1; p++) {
+        const [ax, az] = points[p],
+          [bx, bz] = points[p + 1];
+        const len = Math.hypot(bx - ax, bz - az);
+        for (let t = 0; t <= len; t += 0.78) {
+          const x = ax + ((bx - ax) * t) / len,
+            z = az + ((bz - az) * t) / len;
+          if (z < RIVER.maxZ + 0.4 && z > RIVER.minZ - 0.4) continue;
+          const stone = cylinder(
+            this.scene,
+            ['#afaa84', '#a7a681', '#b9b28a'][Math.floor(r(0, 3))],
+            x + r(-0.15, 0.15),
+            0.06,
+            z + r(-0.15, 0.15),
+            r(0.34, 0.5),
+            0.48,
+            0.07,
+            5,
+          );
+          stone.rotation.y = r(0, 6);
+        }
       }
     };
-    [
-      [
-        [0, 8],
-        [0, -7],
-      ],
-      [
-        [0, 3],
-        [-6, 3],
-      ],
-      [
-        [0, 3],
-        [6, 2],
-      ],
-      [
-        [0, -4],
-        [-5, -5],
-      ],
-      [
-        [0, -4],
-        [7, -5],
-      ],
-    ].forEach(([a, b]) => path(a, b));
-    // Dense layered canopy at the edge, open readable routes in the middle.
-    for (let i = 0; i < 64; i++) {
-      let x = r(-17, 17),
-        z = r(-15, 15);
-      if (Math.abs(x) < 9 && z > -11 && z < 11) {
-        x = Math.sign(x || 1) * r(13.2, 17);
-      }
-      if (x > 8 && x < 14) continue;
-      if (z > 9 && Math.abs(x) < 6) continue;
-      this.tree(x, z, r(0.7, 1.3), rng);
-    }
-    for (const [x, z] of [
-      [-9, -3],
-      [-9, 6],
-      [8, 6],
-      [-7, -10],
-      [6, -11],
-      [-13, 0],
-    ])
-      this.palm(x, z, 1 + rng() * 0.3);
-    for (let i = 0; i < 140; i++) {
-      const x = r(-17, 17),
-        z = r(-15, 15);
-      if (
-        Math.abs(x) < 1.5 ||
-        LANDMARKS.some((l) => Math.hypot(l.x - x, l.z - z) < 2) ||
-        (x > 8 && x < 14)
-      )
-        continue;
-      if (i % 4 === 0) {
-        const m = rock(
-          this.scene,
-          ['#6c7965', '#8c9276', '#586a56'][i % 3],
-          x,
-          0.19,
-          z,
-          r(0.25, 0.65),
+    path([
+      [0, 14],
+      [0.5, 6],
+      [0, 1],
+      [0, -7.5],
+    ]);
+    path([
+      [0, -13.5],
+      [0, -20],
+      [0, -25],
+      [0, -32.5],
+      [0, -34],
+      [0, -40.5],
+      [0, -42],
+    ]);
+    path([
+      [0, -3],
+      [-12.5, -4],
+    ]);
+    path([
+      [0.5, -5],
+      [4, -6],
+    ]);
+    path([
+      [2, -28.5],
+      [13, -28.5],
+    ]);
+    // Dense canopy fills everything that is not walkable, so the level reads
+    // as clearings joined by trails rather than a flat board.
+    const open = new Set(GATES.map((g) => g.id));
+    const clearOf = (x: number, z: number, margin: number) => {
+      for (const [dx, dz] of [
+        [0, 0],
+        [margin, 0],
+        [-margin, 0],
+        [0, margin],
+        [0, -margin],
+        [margin * 0.7, margin * 0.7],
+        [-margin * 0.7, margin * 0.7],
+        [margin * 0.7, -margin * 0.7],
+        [-margin * 0.7, -margin * 0.7],
+      ])
+        if (isWalkable(x + dx, z + dz, open)) return false;
+      return true;
+    };
+    for (let z = b.minZ - 6; z <= b.maxZ + 5; z += 2.3)
+      for (let x = b.minX - 6; x <= b.maxX + 6; x += 2.3) {
+        const px = x + r(-0.8, 0.8),
+          pz = z + r(-0.8, 0.8);
+        if (pz < RIVER.maxZ + 0.6 && pz > RIVER.minZ - 0.6) continue;
+        if (px < -7.5 && px > -12 && pz > 4 && pz < 18) continue; // waterfall cliff
+        if (!clearOf(px, pz, 1.6)) continue;
+        // The camera looks from the south-east; tall trees there would hide
+        // the hero, so that edge gets low undergrowth instead.
+        const hides = [1.2, 2.2, 3.2, 4.2].some((k) =>
+          isWalkable(px - k * 0.6, pz - k * 0.8, open),
         );
-        m.rotation.y = rng() * 6;
-      } else this.fern(x, z, r(0.4, 0.8), i % 3 === 0 ? '#84a45b' : '#3e7855');
-    }
-    // Ruin fragments and a timber crossing.
-    for (let i = 0; i < 8; i++)
-      box(this.scene, '#8d7754', 11.8, 0.24, 4 + i * 0.28, 4.4, 0.16, 0.23);
-    for (const z of [3.8, 6.1])
-      for (const x of [9.7, 13.9]) cylinder(this.scene, '#69563b', x, 0.65, z, 0.07, 0.09, 1.2);
-    for (let i = 0; i < 7; i++) {
-      const b = box(
-        this.scene,
-        '#7b846a',
-        -8.3,
-        0.25 + (i % 2) * 0.2,
-        -7 + i * 0.8,
-        1.1,
-        0.5 + (i % 2) * 0.4,
-        0.7,
-      );
-      b.rotation.y = i * 0.13;
-    }
-    this.toucan(-6.5, 1.5, 3.9);
-    this.toucan(4.5, 0.4, 5.3);
-  }
-  /**
-   * Fixed landmarks give the compact wilds a readable expedition shape. They
-   * deliberately contain no creatures: the RPG snapshot remains the only
-   * source of enemy silhouettes and interaction targets.
-   */
-  private buildWildsLandmarks() {
-    this.buildRiverTrail();
-    this.buildPirateOutpost();
-    this.buildGuardianSanctuary();
-  }
-  private buildRiverTrail() {
-    const g = new THREE.Group();
-    this.scene.add(g);
-    // A stone-and-rope crossing points from the central trail to the river,
-    // then continues north as a deliberately different turquoise route.
-    for (let i = 0; i < 9; i++) {
-      const x = 7.4 + i * 0.52;
-      const plank = box(g, i % 2 ? '#806846' : '#987a4e', x, 0.24, 4.75, 0.46, 0.13, 2.65);
-      plank.rotation.y = ((i % 3) - 1) * 0.035;
-    }
-    for (const z of [3.55, 5.95]) {
-      for (const x of [7.25, 11.78]) {
-        cylinder(g, '#66553a', x, 0.78, z, 0.1, 0.13, 1.55, 6);
-        const lantern = crystal(g, '#8ee5cf', x, 1.47, z, 0.11);
-        lantern.rotation.z = Math.PI / 4;
+        if (hides) {
+          if (rng() < 0.5) this.fern(px, pz, r(0.9, 1.3), '#3e7855');
+          else rock(this.scene, '#56664f', px, 0.3, pz, r(0.5, 0.9));
+        } else if (rng() < 0.18) this.palm(px, pz, r(0.9, 1.25));
+        else this.tree(px, pz, r(0.75, 1.3), rng);
       }
-    }
-    for (const side of [-1, 1]) {
-      const rope = mesh(
+    // Undergrowth along the clearing edges; never on objects, enemies or trails.
+    const blocked = [
+      ...LEVEL_OBJECTS.map((o) => [o.x, o.z]),
+      ...ENEMY_DEFINITIONS.map((e) => [e.x, e.z]),
+    ];
+    for (const region of REGIONS)
+      for (const rect of region.rects) {
+        const count = Math.round(((rect.maxX - rect.minX) * (rect.maxZ - rect.minZ)) / 9);
+        for (let i = 0; i < count; i++) {
+          const edge = rng() < 0.75;
+          const x = edge
+            ? rng() < 0.5
+              ? r(rect.minX, rect.minX + 1.4)
+              : r(rect.maxX - 1.4, rect.maxX)
+            : r(rect.minX, rect.maxX);
+          const z = r(rect.minZ, rect.maxZ);
+          if (Math.abs(x) < 1.6 || blocked.some(([bx, bz]) => Math.hypot(bx - x, bz - z) < 1.8))
+            continue;
+          if (i % 4 === 0) {
+            const m = rock(
+              this.scene,
+              ['#6c7965', '#8c9276', '#586a56'][i % 3],
+              x,
+              0.17,
+              z,
+              r(0.2, 0.5),
+            );
+            m.rotation.y = rng() * 6;
+          } else this.fern(x, z, r(0.4, 0.8), i % 3 === 0 ? '#84a45b' : '#3e7855');
+        }
+      }
+    this.buildWaterfall();
+    this.buildCamp(-4.8, 13.2);
+    this.buildHollowSet();
+    this.buildStockade();
+    this.buildPirateOutpost(6.2, -26.6);
+    this.buildCove();
+    this.buildAntechamber();
+    this.buildGuardianSanctuary(0, -46);
+    this.buildTemple(0, -49.5);
+    this.toucan(-6.2, 1.5, 7.2);
+    this.toucan(5.8, 0.4, -12.4);
+    this.toucan(-8.4, 1.1, -22.5);
+  }
+  private buildWaterfall() {
+    // West of the landing so the cliff frames the start instead of hiding it.
+    const g = new THREE.Group();
+    g.position.set(-9.6, 0, 11.5);
+    this.scene.add(g);
+    for (let i = 0; i < 7; i++) {
+      const cliff = rock(
         g,
-        geometry('river-rope', () => new THREE.TorusGeometry(2.1, 0.027, 5, 16, Math.PI)),
-        '#b59a66',
-        9.5,
-        1.12,
-        4.75 + side * 1.12,
+        i % 2 ? '#5d6b5a' : '#6f7b66',
+        -0.6,
+        1.6 + (i % 3) * 0.5,
+        -6 + i * 2,
+        1.8,
       );
-      rope.rotation.z = Math.PI / 2;
-      rope.rotation.y = (side * Math.PI) / 2;
+      cliff.scale.y = 2;
     }
-    for (let i = 0; i < 6; i++) {
-      const marker = cylinder(
+    for (let i = 0; i < 4; i++) {
+      const fall = box(g, i % 2 ? '#8fd3cc' : '#b4e6de', 0.9, 2.3, -1.5 + i, 0.12, 4.6, 0.9);
+      this.water.push(fall);
+    }
+    const pool = cylinder(g, '#3e9e92', 1.9, 0.03, 0, 2.4, 2.4, 0.08, 10);
+    pool.scale.x = 0.6;
+    this.water.push(pool);
+    for (let i = 0; i < 6; i++)
+      rock(g, '#8c9276', 2.4 + Math.cos(i) * 1.2, 0.12, Math.sin(i) * 2.2, 0.3);
+  }
+  private buildCamp(x: number, z: number) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    this.scene.add(g);
+    const tent = mesh(g, new THREE.ConeGeometry(1.4, 1.9, 4, 1, true), '#a18453', 0, 0.95, 0);
+    tent.rotation.y = Math.PI / 4;
+    tent.scale.z = 1.2;
+    const door = mesh(g, new THREE.ConeGeometry(0.6, 1.3, 3), '#463f2d', 0, 0.66, 1.05);
+    door.scale.z = 0.08;
+    for (let i = 0; i < 8; i++)
+      rock(
         g,
-        '#697e60',
-        8.4 + Math.sin(i * 0.9) * 0.65,
-        0.16,
-        -1.5 - i * 1.28,
-        0.32,
-        0.44,
-        0.25,
+        '#899076',
+        2.3 + Math.cos((i * Math.PI) / 4) * 0.5,
+        0.13,
+        0.4 + Math.sin((i * Math.PI) / 4) * 0.5,
+        0.2,
+      );
+    for (let i = 0; i < 3; i++) {
+      const flame = mesh(
+        g,
+        new THREE.ConeGeometry(0.17, 0.6, 5),
+        i % 2 ? '#edbf6d' : '#e99445',
+        2.3 + (i - 1) * 0.12,
+        0.4,
+        0.4,
+        true,
+      );
+      this.fire.push(flame);
+    }
+    const light = new THREE.PointLight('#ffb04c', 3.5, 5);
+    light.position.set(2.3, 1, 0.4);
+    g.add(light);
+    box(g, '#786348', 2.8, 0.2, 1.6, 1.5, 0.34, 0.45);
+  }
+  private buildHollowSet() {
+    // Boar den: churned earth and a ring of broken stones.
+    for (let i = 0; i < 9; i++) {
+      const a = (i / 9) * Math.PI * 2;
+      rock(
+        this.scene,
+        '#6b604a',
+        -7 + Math.cos(a) * 1.9,
+        0.18,
+        -4 + Math.sin(a) * 1.9,
+        0.3 + (i % 3) * 0.1,
+      );
+    }
+    cylinder(this.scene, '#5b4b36', -7, 0.03, -4, 1.4, 1.4, 0.03, 9);
+    // Fallen logs frame the clearing.
+    for (const [x, z, a] of [
+      [-9.5, 0.8, 0.3],
+      [5, 1.2, -0.4],
+      [-4.5, -7.3, 0.1],
+    ]) {
+      const log = cylinder(this.scene, '#6a5236', x, 0.3, z, 0.3, 0.34, 3.2, 7);
+      log.rotation.z = Math.PI / 2;
+      log.rotation.y = a;
+    }
+    // Bridge-head posts on both banks.
+    for (const z of [-7.6, -13.4])
+      for (const x of [-1.6, 1.6]) {
+        cylinder(this.scene, '#66553a', x, 0.8, z, 0.12, 0.15, 1.6, 6);
+        crystal(this.scene, '#8ee5cf', x, 1.72, z, 0.1);
+      }
+    // A hint of the grotto: a dark cave mouth to the west.
+    for (let i = 0; i < 6; i++)
+      rock(
+        this.scene,
+        i % 2 ? '#4f5b4d' : '#5d6858',
+        -15.8,
+        0.6 + (i % 3) * 0.7,
+        -6.3 + i * 1.1,
+        1.1,
+      );
+    box(this.scene, '#1b241f', -15.6, 0.9, -4, 0.2, 1.8, 2.2);
+  }
+  private buildStockade() {
+    // Sharpened palisade around the yard with openings for the gate, the
+    // barricade and the cove path. Openings are exactly the walkable links.
+    const post = (x: number, z: number, i: number) => {
+      cylinder(
+        this.scene,
+        i % 2 ? '#6d5334' : '#7c5f3b',
+        x,
+        1.1,
+        z,
+        0.2,
+        0.24,
+        2.2 + (i % 3) * 0.2,
         6,
       );
-      marker.rotation.y = i * 0.5;
-      crystal(g, i % 2 ? '#65c6b0' : '#a9df9b', marker.position.x, 0.48, marker.position.z, 0.1);
+      cylinder(this.scene, '#8a6c45', x, 2.35 + (i % 3) * 0.1, z, 0, 0.2, 0.4, 6);
+    };
+    let i = 0;
+    for (let x = -9.6; x <= 9.6; x += 0.46) {
+      if (Math.abs(x) > 2.3) post(x, -24.1, i++);
+      if (Math.abs(x) > 2.3) post(x, -33.4, i++);
     }
-    // A non-interactive discovery beacon makes the far bank worth crossing
-    // without creating a second landmark or competing with the RPG targets.
-    cylinder(g, '#6f8268', 12.08, 0.55, 4.72, 0.34, 0.47, 1.02, 6);
-    crystal(g, '#74dfc2', 12.08, 1.38, 4.72, 0.26);
-    ring(g, '#8ee5cf', 0.72, 12.08, 4.72);
-    const beacon = new THREE.PointLight('#76e3c4', 1.5, 3.2);
-    beacon.position.set(12.08, 1.3, 4.72);
-    g.add(beacon);
+    for (let z = -24.1; z >= -33.4; z -= 0.46) {
+      post(-9.6, z, i++);
+      if (z > -25.6 || z < -31.4) post(9.6, z, i++);
+    }
+    for (const x of [-2.5, 2.5]) {
+      cylinder(this.scene, '#5b4632', x, 1.8, -24.1, 0.3, 0.34, 3.6, 7);
+      crystal(this.scene, '#f0b66a', x, 3.75, -24.1, 0.13);
+    }
+    // Watchtower behind the lookout.
+    for (const [x, z] of [
+      [-8.3, -26.2],
+      [-7.1, -26.2],
+      [-8.3, -25.2],
+      [-7.1, -25.2],
+    ])
+      cylinder(this.scene, '#5f4a31', x, 1.7, z, 0.1, 0.12, 3.4, 5);
+    box(this.scene, '#7a5a37', -7.7, 3.45, -25.7, 1.7, 0.16, 1.5);
+    box(this.scene, '#963f37', -7.7, 4.1, -25.7, 1.8, 0.08, 1.6);
+    // Captain's red sail tent.
+    const tent = mesh(
+      this.scene,
+      new THREE.ConeGeometry(1.6, 2.4, 4, 1, true),
+      '#8e3b39',
+      4.8,
+      1.2,
+      -32,
+    );
+    tent.rotation.y = Math.PI / 4;
+    for (let k = 0; k < 5; k++)
+      box(this.scene, '#815b36', -3 + k * 0.9, 0.35, -32.6, 0.7, 0.7, 0.7).rotation.y = k * 0.3;
   }
-  private buildPirateOutpost() {
+  private buildCove() {
+    for (let i = 0; i < 5; i++) {
+      const pool = cylinder(
+        this.scene,
+        i % 2 ? '#368f84' : '#3e9e92',
+        10.6 + i * 1.2,
+        0.03,
+        -30.3 + (i % 2) * 0.5,
+        0.8,
+        0.8,
+        0.06,
+        8,
+      );
+      this.water.push(pool);
+    }
+    for (let i = 0; i < 10; i++)
+      rock(
+        this.scene,
+        i % 2 ? '#8c9276' : '#b0a88a',
+        9 + i * 0.7,
+        0.15,
+        -25.8 - (i % 3) * 0.2,
+        0.25 + (i % 3) * 0.1,
+      );
+  }
+  private buildAntechamber() {
+    for (const x of [-7.4, 7.4])
+      for (let k = 0; k < 4; k++) {
+        const z = -34.5 - k * 2;
+        cylinder(
+          this.scene,
+          k % 2 ? '#78836b' : '#8f9371',
+          x,
+          1.4,
+          z,
+          0.35,
+          0.45,
+          2.8 - (k % 2) * 0.9,
+          6,
+        );
+        if (k % 2 === 0) crystal(this.scene, '#72d9b7', x, 3, z, 0.18);
+      }
+    for (let k = 0; k < 6; k++) {
+      const block = box(
+        this.scene,
+        '#9a9776',
+        -6 + k * 2.4,
+        0.2,
+        -40.9,
+        1.6,
+        0.4 + (k % 2) * 0.5,
+        0.8,
+      );
+      block.rotation.y = k * 0.1;
+    }
+    for (const x of [-2.6, 2.6]) {
+      // Kept low: a tall portal would hide the boss arena from the camera.
+      cylinder(this.scene, '#78836b', x, 1.4, -41.2, 0.45, 0.55, 2.8, 6);
+      box(this.scene, '#aaa77f', x, 2.9, -41.2, 1.1, 0.3, 1.1);
+    }
+    box(this.scene, '#a4a083', 0, 3.2, -41.2, 6.4, 0.45, 1.1);
+  }
+  private buildPirateOutpost(x: number, z: number) {
     const g = new THREE.Group();
-    g.position.set(7.4, 0, -2.25);
+    g.position.set(x, 0, z);
     this.scene.add(g);
-    // The lookout is placed behind the Corsair encounter at (4, -2), leaving
-    // its approach and hit target clean while giving that fight a clear story.
+    // Supply dump inside the stockade: crates, a sail mast and a brazier.
     box(g, '#735337', 0.25, 0.17, 0.05, 4.8, 0.16, 3.55);
     for (const [x, z, s] of [
       [-1.65, -1.18, 0.8],
@@ -853,9 +1118,9 @@ export class JungleWorld {
     crystal(g, '#ed9b48', 1.72, 1.05, -1.37, 0.2);
     brazier.rotation.y = 0.2;
   }
-  private buildGuardianSanctuary() {
+  private buildGuardianSanctuary(x: number, z: number) {
     const g = new THREE.Group();
-    g.position.set(0, 0, -6.25);
+    g.position.set(x, 0, z);
     this.scene.add(g);
     // This is architecture around the actual RPG boss position, never a
     // second decorative guardian. Open sides preserve the combat silhouette.
@@ -1005,9 +1270,9 @@ export class JungleWorld {
       l.rotation.x = Math.sin(i * 1.26) * 0.7;
     }
   }
-  private buildTemple() {
+  private buildTemple(x: number, z: number) {
     const g = new THREE.Group();
-    g.position.set(0, 0, -10);
+    g.position.set(x, 0, z);
     this.scene.add(g);
     for (let i = 0; i < 5; i++)
       box(
@@ -1049,90 +1314,233 @@ export class JungleWorld {
     });
     for (let i = 0; i < 5; i++) rock(g, '#657853', -4.8 + i * 2.3, 0.4, -3.6, 0.8);
   }
-  private buildLandmarks() {
-    for (const l of LANDMARKS) {
+  /** Gates react to progress, so they stay outside the static mesh batches. */
+  private buildGates() {
+    const add = (id: GateId) => {
       const g = new THREE.Group();
-      g.position.set(l.x, l.kind === 'boss' ? 1.08 : 0, l.z);
-      this.scene.add(g);
-      this.markers.set(l.id, g);
-      g.userData.landmark = l.id;
-      if (l.kind === 'boss') continue;
-      ring(g, l.kind === 'cache' ? '#d5bd73' : '#68c9a7', 1.05, 0, 0);
-      if (l.kind === 'cache') {
-        box(g, '#6d4e32', 0, 0.35, 0, 1.15, 0.6, 0.75);
-        box(g, '#a18548', 0, 0.7, 0, 1.2, 0.15, 0.8);
-        for (const x of [-0.4, 0.4]) box(g, '#c4a867', x, 0.43, 0.39, 0.09, 0.55, 0.035);
-        box(g, '#ead18b', 0, 0.42, 0.42, 0.16, 0.2, 0.06);
-      } else {
-        cylinder(g, '#8e9275', 0, 0.18, 0, 0.78, 0.92, 0.36, 6);
-        cylinder(g, '#a4a384', 0, 0.58, 0, 0.47, 0.6, 0.58, 5);
-        box(g, '#b5ae88', 0, 0.97, 0, 1.1, 0.2, 0.95);
-        const c = crystal(
-          g,
-          l.id === 'ember' ? '#edbd6b' : l.id === 'root' ? '#a9d875' : '#70dbc7',
+      g.userData.gate = id;
+      this.wildsScene.add(g);
+      this.gateMeshes.set(id, g);
+      return g;
+    };
+    // Rope bridge: the deck hinges at the far bank and is raised until the winch turns.
+    const bridge = add('bridge');
+    bridge.position.set(0, 0.22, -13.3);
+    const deck = new THREE.Group();
+    deck.name = 'deck';
+    bridge.add(deck);
+    for (let i = 0; i < 11; i++)
+      box(deck, i % 2 ? '#806846' : '#987a4e', 0, 0, 0.3 + i * 0.52, 2.8, 0.12, 0.46).rotation.y =
+        ((i % 3) - 1) * 0.03;
+    for (const x of [-1.45, 1.45]) box(deck, '#b59a66', x, 0.45, 2.9, 0.05, 0.05, 5.7);
+    // Stockade gate: two heavy doors swing inwards.
+    const stockade = add('stockade');
+    stockade.position.set(0, 0, -24.1);
+    for (const side of [-1, 1]) {
+      const hinge = new THREE.Group();
+      hinge.name = side < 0 ? 'left' : 'right';
+      hinge.position.x = side * 2.2;
+      stockade.add(hinge);
+      for (let k = 0; k < 5; k++)
+        cylinder(
+          hinge,
+          k % 2 ? '#6d5334' : '#7c5f3b',
+          -side * (0.22 + k * 0.42),
+          1.2,
           0,
-          1.6,
-          0,
-          0.43,
+          0.19,
+          0.22,
+          2.4,
+          6,
         );
-        c.userData.landmark = l.id;
-        c.userData.originalMaterial = c.material;
-        this.relics.push(c);
-        for (let i = 0; i < 4; i++) {
-          const m = box(
-            g,
-            '#45614d',
-            Math.cos((i * Math.PI) / 2) * 0.48,
-            0.56,
-            Math.sin((i * Math.PI) / 2) * 0.48,
-            0.12,
-            0.23,
-            0.1,
-          );
-          m.rotation.y = (-i * Math.PI) / 2;
-        }
-      }
-      const light = new THREE.PointLight(l.kind === 'cache' ? '#f3d89a' : '#70efca', 2, 3);
-      light.position.y = 1.4;
-      g.add(light);
+      box(hinge, '#b18a50', -side * 1.05, 1.5, 0.2, 2.1, 0.14, 0.08);
+      box(hinge, '#b18a50', -side * 1.05, 0.7, 0.2, 2.1, 0.14, 0.08);
+    }
+    // Barricade: crates, barrels and a red sail; it drops away when Redsail falls.
+    const barricade = add('barricade');
+    barricade.position.set(0, 0, -33.3);
+    for (let k = 0; k < 5; k++) {
+      const crate = box(
+        barricade,
+        '#815b36',
+        -1.8 + k * 0.9,
+        0.45 + (k % 2) * 0.35,
+        0,
+        0.8,
+        0.8,
+        0.8,
+      );
+      crate.rotation.y = k * 0.4;
+    }
+    cylinder(barricade, '#6a4a2e', 1.4, 1.3, 0.2, 0.35, 0.35, 0.8, 8);
+    mesh(
+      barricade,
+      geometry('barricade-sail', () => new THREE.PlaneGeometry(4, 1.2)),
+      '#963f37',
+      0,
+      1.7,
+      -0.2,
+    );
+    // Sanctum door: a carved slab with three seal sockets.
+    const sanctum = add('sanctum');
+    sanctum.position.set(0, 0, -41.2);
+    const slab = new THREE.Group();
+    slab.name = 'slab';
+    sanctum.add(slab);
+    box(slab, '#6f7d66', 0, 1.5, 0, 4.4, 3, 0.6);
+    for (let k = 0; k < 3; k++) {
+      const socket = crystal(slab, '#8ff0bc', -1.2 + k * 1.2, 1.9, 0.35, 0.2);
+      socket.name = `socket-${k}`;
     }
   }
-  private buildCamp() {
-    const g = new THREE.Group();
-    g.position.set(-3.2, 0, 9);
-    this.scene.add(g);
-    const tent = mesh(g, new THREE.ConeGeometry(1.6, 2.1, 4, 1, true), '#a18453', 0, 1.05, 0);
-    tent.rotation.y = Math.PI / 4;
-    tent.scale.z = 1.2;
-    const door = mesh(g, new THREE.ConeGeometry(0.7, 1.45, 3), '#463f2d', 0, 0.73, 1.22);
-    door.scale.z = 0.08;
-    const pole = box(g, '#594f35', 0, 1, 1.33, 0.07, 2, 0.07);
-    pole.rotation.z = 0.02;
-    for (let i = 0; i < 8; i++)
-      rock(
-        this.scene,
-        '#899076',
-        1.8 + Math.cos((i * Math.PI) / 4) * 0.55,
-        0.15,
-        9 + Math.sin((i * Math.PI) / 4) * 0.55,
-        0.22,
-      );
-    for (let i = 0; i < 3; i++) {
-      const flame = mesh(
-        this.scene,
-        new THREE.ConeGeometry(0.19, 0.7, 5),
-        i % 2 ? '#edbf6d' : '#e99445',
-        1.8 + (i - 1) * 0.13,
-        0.46,
-        9,
-        true,
-      );
-      this.fire.push(flame);
+  private buildObjects() {
+    for (const object of LEVEL_OBJECTS) {
+      const g = new THREE.Group();
+      g.position.set(object.x, 0, object.z);
+      g.userData.levelObject = object.id;
+      this.wildsScene.add(g);
+      this.objectMeshes.set(object.id, g);
+      const accent =
+        object.kind === 'chest'
+          ? '#e2c071'
+          : object.kind === 'lore'
+            ? '#d8d2b0'
+            : object.kind === 'shrine'
+              ? '#7fe0d2'
+              : object.kind === 'seal'
+                ? object.id === 'seal-west'
+                  ? '#8ad0f0'
+                  : object.id === 'seal-east'
+                    ? '#f0c27a'
+                    : '#9ef0b4'
+                : '#86e7c5';
+      g.userData.accent = accent;
+      ring(g, accent, 0.95, 0, 0);
+      if (object.kind === 'chest' || object.kind === 'puzzle') {
+        box(g, object.kind === 'puzzle' ? '#4f5b4d' : '#6d4e32', 0, 0.33, 0, 1.1, 0.56, 0.72);
+        const lid = new THREE.Group();
+        lid.name = 'lid';
+        lid.position.set(0, 0.62, -0.36);
+        g.add(lid);
+        box(lid, object.kind === 'puzzle' ? '#65755f' : '#a18548', 0, 0.07, 0.36, 1.16, 0.14, 0.76);
+        for (const x of [-0.38, 0.38]) box(g, '#c4a867', x, 0.4, 0.37, 0.08, 0.5, 0.03);
+        box(g, '#ead18b', 0, 0.42, 0.39, 0.15, 0.18, 0.05);
+        if (object.kind === 'puzzle')
+          for (let k = 0; k < 4; k++) crystal(g, '#86e7c5', -0.42 + k * 0.28, 0.72, 0.4, 0.07);
+      } else if (object.kind === 'lore') {
+        const stone = box(g, '#8e9275', 0, 0.75, 0, 0.7, 1.5, 0.3);
+        stone.rotation.y = 0.2;
+        box(g, '#c9bd8c', 0.04, 0.95, 0.16, 0.42, 0.5, 0.03).rotation.y = 0.2;
+      } else if (object.kind === 'shrine') {
+        cylinder(g, '#8e9275', 0, 0.3, 0, 0.7, 0.85, 0.6, 7);
+        const basin = cylinder(g, '#6fd0c6', 0, 0.62, 0, 0.55, 0.55, 0.05, 10);
+        basin.name = 'basin';
+        crystal(g, '#7fe0d2', 0, 1.3, 0, 0.22);
+      } else if (object.kind === 'mechanism' && object.id === 'bridge-winch') {
+        for (const x of [-0.55, 0.55]) box(g, '#5f4a31', x, 0.6, 0, 0.16, 1.2, 0.3);
+        const drum = cylinder(g, '#8a6c45', 0, 0.9, 0, 0.38, 0.38, 0.95, 10);
+        drum.rotation.z = Math.PI / 2;
+        drum.name = 'drum';
+        box(g, '#b59a66', 0.62, 0.9, 0.3, 0.06, 0.06, 0.6);
+      } else if (object.kind === 'mechanism') {
+        box(g, '#5b4632', 0, 0.8, 0, 0.9, 1.6, 0.3);
+        const dial = cylinder(g, '#d0ad63', 0, 1.05, 0.2, 0.3, 0.3, 0.08, 12);
+        dial.rotation.x = Math.PI / 2;
+        dial.name = 'dial';
+      } else {
+        cylinder(g, '#78836b', 0, 0.9, 0, 0.35, 0.5, 1.8, 6);
+        const gem = crystal(g, accent, 0, 2.15, 0, 0.36);
+        gem.name = 'gem';
+      }
+      // Floating quest marker: shown only while the object is usable.
+      const marker = crystal(g, object.task ? '#f0cf74' : '#f4f0d8', 0, 2.9, 0, 0.16);
+      marker.name = 'marker';
+      marker.material = mat(object.task ? '#f0cf74' : '#f4f0d8', 1, true);
     }
-    const light = new THREE.PointLight('#ffb04c', 4, 5);
-    light.position.set(1.8, 1, 9);
-    this.scene.add(light);
-    box(this.scene, '#786348', 2.8, 0.22, 10, 1.7, 0.38, 0.5);
+  }
+  /** Apply gate/object progress to the scene; animation eases toward these targets. */
+  private syncLevel(snapshot: RpgWorldSnapshot) {
+    const view: LevelView = {
+      resolved: snapshot.resolved ?? [],
+      defeated: snapshot.enemies.filter((e) => e.hp === 0).map((e) => e.key as EnemyKey),
+    };
+    this.open = openGates(view);
+    for (const [id, g] of this.gateMeshes) g.userData.open = this.open.has(id);
+    for (const object of LEVEL_OBJECTS) {
+      const g = this.objectMeshes.get(object.id);
+      if (!g) continue;
+      const done = view.resolved.includes(object.id);
+      const available = !done && objectAvailable(object, view);
+      g.userData.done = done;
+      g.userData.available = available;
+      const marker = g.getObjectByName('marker');
+      if (marker) marker.visible = available;
+      const gem = g.getObjectByName('gem');
+      if (gem) (gem as THREE.Mesh).material = mat(done ? '#56615a' : g.userData.accent, 1, !done);
+    }
+    const sockets = GATES.find((gate) => gate.id === 'sanctum')!.objects;
+    sockets.forEach((id, k) => {
+      const socket = this.gateMeshes.get('sanctum')?.getObjectByName(`socket-${k}`);
+      if (socket)
+        (socket as THREE.Mesh).material = mat(
+          view.resolved.includes(id) ? '#3c4a42' : '#8ff0bc',
+          1,
+          !view.resolved.includes(id),
+        );
+    });
+  }
+  /** Ease gates and containers toward their progress state; reduced motion snaps. */
+  private animateLevel(dt: number) {
+    const k = this.motion ? 1 : 1 - Math.exp(-dt * 3);
+    const ease = (from: number, to: number) => from + (to - from) * k;
+    for (const [id, g] of this.gateMeshes) {
+      const open = !!g.userData.open;
+      if (id === 'bridge') {
+        const deck = g.getObjectByName('deck')!;
+        deck.rotation.x = ease(deck.rotation.x, open ? 0 : -1.25);
+      } else if (id === 'stockade') {
+        const left = g.getObjectByName('left')!,
+          right = g.getObjectByName('right')!;
+        left.rotation.y = ease(left.rotation.y, open ? 1.7 : 0);
+        right.rotation.y = ease(right.rotation.y, open ? -1.7 : 0);
+      } else if (id === 'barricade') {
+        g.position.y = ease(g.position.y, open ? -2.6 : 0);
+        g.visible = g.position.y > -2.5;
+      } else {
+        const slab = g.getObjectByName('slab')!;
+        slab.position.y = ease(slab.position.y, open ? -4.3 : 0);
+      }
+    }
+    for (const g of this.objectMeshes.values()) {
+      const lid = g.getObjectByName('lid');
+      if (lid) lid.rotation.x = ease(lid.rotation.x, g.userData.done ? -1.9 : 0);
+      const drum = g.getObjectByName('drum');
+      if (drum && g.userData.done && !this.motion && drum.userData.spin !== true) {
+        drum.userData.spin = true;
+        drum.userData.until = this.elapsed + 1.5;
+      }
+      if (drum?.userData.spin && this.elapsed < drum.userData.until) drum.rotation.x += dt * 9;
+      const dial = g.getObjectByName('dial');
+      if (dial) dial.rotation.y = ease(dial.rotation.y, g.userData.done ? Math.PI * 1.5 : 0);
+    }
+  }
+  /** Walk a planned route to a point; tell the player why if a gate is in the way. */
+  private replanned = false;
+  private routeTo(to: { x: number; z: number }, explain = true) {
+    if (explain) this.replanned = false;
+    const route = findPath({ x: this.player.position.x, z: this.player.position.z }, to, this.open);
+    this.route = route.points.map((p) => new THREE.Vector3(p.x, 0, p.z));
+    this.target = this.route.shift() ?? null;
+    if (explain && route.blockedBy) this.options.onBlocked?.(route.blockedBy.closedHint);
+    return route;
+  }
+  goTo(id: string) {
+    const object = objectById(id);
+    if (!object || this.rpg?.zone !== 'wilds') return;
+    this.pendingEnemy = null;
+    this.pendingZone = false;
+    this.pendingInteraction = id;
+    this.routeTo(nearestWalkable({ x: object.x, z: object.z + 1.1 }, this.open));
   }
   private buildVillage() {
     const g = this.villageScene;
@@ -1329,7 +1737,8 @@ export class JungleWorld {
     g.position.set(enemy.x, 0, enemy.z);
     const beast = /beast|boar|wolf|cat|panther|beetle|spider/.test(enemy.kind);
     if (beast) {
-      const colour = /beetle|spider/.test(enemy.kind) ? '#465744' : '#655242';
+      const colour =
+        enemy.key === 'prowler' ? '#7a6048' : enemy.key === 'stalker' ? '#4d5a3c' : '#655242';
       orb(g, colour, 0, 0.55, 0, 0.61, 0.44, 0.8);
       orb(g, colour, 0, 0.56, 0.69, 0.4, 0.34, 0.37);
       orb(g, '#8b7960', 0, 0.43, 0.96, 0.27, 0.15, 0.19);
@@ -1377,6 +1786,11 @@ export class JungleWorld {
       for (const x of [-0.56, 0.56]) crystal(g, '#98e6a4', x, 0.8, 0, 0.27);
       crystal(g, '#aaf1c9', 0, 0.74, 0.41, 0.18);
     }
+    if (enemy.rank === 'elite') {
+      // Elites read as bigger threats before the player reads their name.
+      g.scale.setScalar(1.28);
+      ring(g, '#e0a452', 1.05, 0, 0);
+    }
     ring(g, '#c26947', 0.8, 0, 0);
     const bar = new THREE.Group();
     bar.position.y = enemy.kind === 'guardian' ? 4.85 : 2.6;
@@ -1393,7 +1807,6 @@ export class JungleWorld {
   updateRpg(snapshot: RpgWorldSnapshot) {
     const changedZone = this.rpg?.zone !== snapshot.zone;
     this.rpg = snapshot;
-    this.guardian.visible = false;
     this.wildsScene.visible = snapshot.zone === 'wilds';
     this.villageScene.visible = snapshot.zone === 'village';
     if (changedZone) {
@@ -1401,8 +1814,11 @@ export class JungleWorld {
       this.pendingEnemy = null;
       this.pendingZone = false;
       this.pendingInteraction = null;
-      this.player.position.set(0, 0, snapshot.zone === 'village' ? 4 : 7);
+      this.route = [];
+      if (snapshot.zone === 'village') this.player.position.set(0, 0, 4);
+      else this.player.position.set(SPAWN.x, 0, SPAWN.z);
       this.player.rotation.y = Math.PI;
+      this.snapCamera = true;
       this.nearby = null;
       this.options.onNearby(null);
       this.resize();
@@ -1442,6 +1858,7 @@ export class JungleWorld {
         fill.position.x = -(1 - enemy.hp / enemy.maxHp) * 0.585;
       }
     }
+    this.syncLevel(snapshot);
   }
   approachEnemy(id: string) {
     const enemy = this.rpg?.enemies.find((e) => e.id === id && e.hp > 0);
@@ -1449,7 +1866,8 @@ export class JungleWorld {
     this.pendingInteraction = null;
     this.pendingZone = false;
     this.pendingEnemy = id;
-    this.target = new THREE.Vector3(enemy.x, 0, enemy.z + 1.35);
+    const route = this.routeTo(nearestWalkable({ x: enemy.x, z: enemy.z + 1.35 }, this.open));
+    if (!route.reached && route.blockedBy) this.pendingEnemy = null;
   }
   attackEnemy(id: string, action: 'strike' | 'power' | 'ritual' = 'strike') {
     const enemy = this.rpg?.enemies.find((e) => e.id === id);
@@ -1581,30 +1999,6 @@ export class JungleWorld {
     this.scene.add(g);
     this.impacts.push(g);
   }
-  private buildGuardian() {
-    const g = this.guardian;
-    g.userData.landmark = 'guardian';
-    this.scene.add(g);
-    g.position.copy(this.bossHome);
-    for (const x of [-0.5, 0.5]) {
-      rock(g, '#586e58', x, 0.38, 0.05, 0.55);
-      box(g, '#788465', x, 0.78, 0, 0.6, 0.8, 0.65);
-    }
-    rock(g, '#809071', 0, 1.7, 0, 1.1);
-    for (const side of [-1, 1]) {
-      rock(g, '#6d8264', side * 1.04, 2.13, 0, 0.63);
-      box(g, '#67795e', side * 1.29, 1.5, 0, 0.55, 0.95, 0.6);
-      rock(g, '#7c8b69', side * 1.3, 0.99, 0.12, 0.45);
-      const horn = crystal(g, '#89d6a6', side * 0.5, 3.18, 0, 0.39);
-      horn.rotation.z = side * -0.35;
-    }
-    box(g, '#8d9977', 0, 2.65, 0.05, 1.15, 0.78, 0.8);
-    for (const x of [-0.27, 0.27])
-      box(g, '#b7ffcd', x, 2.75, 0.46, 0.22, 0.095, 0.04).material = mat('#81eaba', 1, true);
-    box(g, '#465f48', 0, 2.4, 0.47, 0.5, 0.08, 0.04);
-    crystal(g, '#65dfb8', 0, 1.8, 0.81, 0.32);
-    for (let i = 0; i < 5; i++) rock(g, '#52784e', -0.7 + i * 0.3, 2.12, -0.3, 0.28);
-  }
   private toucan(x: number, y: number, z: number) {
     const g = new THREE.Group();
     g.position.set(x, y, z);
@@ -1618,21 +2012,6 @@ export class JungleWorld {
   update(save: Save) {
     this.motion = save.settings.reducedMotion;
     this.profile = save.profile;
-    for (const [id, g] of this.markers) {
-      g.visible = true;
-      g.userData.complete = save.completed.includes(id);
-    }
-    for (const relic of this.relics) {
-      const completed = save.completed.includes(relic.userData.landmark);
-      (relic as THREE.Mesh).material = completed
-        ? mat('#54c4a1', 1, true)
-        : relic.userData.originalMaterial;
-      relic.userData.complete = completed;
-    }
-    // RPG combat supplies the actual guardian. Keep this landmark only for a
-    // legacy non-RPG expedition so two bosses never occupy the same clearing.
-    this.guardian.visible = !this.rpg && !save.won;
-    this.guardian.scale.setScalar(1 - save.guardianStage * 0.05);
     const position = this.player.position.clone(),
       rotation = this.player.rotation.clone();
     this.scene.remove(this.player);
@@ -1648,19 +2027,12 @@ export class JungleWorld {
     // Clear held keys so returning from a dialog cannot leave movement stuck on.
     if (paused) this.keys.clear();
   }
-  goTo(id: string) {
-    const l = LANDMARKS.find((l) => l.id === id);
-    if (l) {
-      this.target = new THREE.Vector3(l.x, 0, l.z + 1.8);
-      this.pendingInteraction = null;
-    }
-  }
   control(key: string, down: boolean) {
     if (down) this.keys.add(key);
     else this.keys.delete(key);
   }
   celebrate(id: string) {
-    const l = LANDMARKS.find((l) => l.id === id);
+    const l = objectById(id);
     if (!l) return;
     if (this.burst) this.scene.remove(this.burst);
     this.burst = new THREE.Group();
@@ -1709,36 +2081,6 @@ export class JungleWorld {
     this.keys.clear();
     this.target = null;
   };
-  /** Keep the compact wilderness bounded while admitting the authored river route. */
-  private clampWildsPosition(point: THREE.Vector3) {
-    point.x = THREE.MathUtils.clamp(point.x, -9, 12.7);
-    point.z = THREE.MathUtils.clamp(point.z, -7.4, 11);
-    if (point.x <= 8) return point;
-    const bridge = { minX: 8, maxX: 12.3, minZ: 3.25, maxZ: 6.25 };
-    const bank = { minX: 10.55, maxX: 12.7, minZ: 1.7, maxZ: 7.6 };
-    const inside = (area: typeof bridge) =>
-      point.x >= area.minX && point.x <= area.maxX && point.z >= area.minZ && point.z <= area.maxZ;
-    if (inside(bridge) || inside(bank)) return point;
-    const options = [
-      new THREE.Vector2(8, point.z),
-      new THREE.Vector2(
-        THREE.MathUtils.clamp(point.x, bridge.minX, bridge.maxX),
-        THREE.MathUtils.clamp(point.z, bridge.minZ, bridge.maxZ),
-      ),
-      new THREE.Vector2(
-        THREE.MathUtils.clamp(point.x, bank.minX, bank.maxX),
-        THREE.MathUtils.clamp(point.z, bank.minZ, bank.maxZ),
-      ),
-    ];
-    const closest = options.reduce((best, candidate) =>
-      candidate.distanceToSquared(new THREE.Vector2(point.x, point.z)) <
-      best.distanceToSquared(new THREE.Vector2(point.x, point.z))
-        ? candidate
-        : best,
-    );
-    point.set(closest.x, point.y, closest.y);
-    return point;
-  }
   private pointer = (e: PointerEvent) => {
     if (this.paused) return;
     this.renderer.domElement.focus({ preventScroll: true });
@@ -1751,62 +2093,69 @@ export class JungleWorld {
       ),
       this.camera,
     );
-    const enemyHit = ray.intersectObjects(
-      [...this.enemyMeshes.values()].filter((g) => this.wildsScene.visible && g.visible),
-      true,
-    )[0];
-    if (enemyHit) {
-      let node: THREE.Object3D | null = enemyHit.object;
-      while (node && !node.userData.enemy) node = node.parent;
-      if (node) {
-        this.approachEnemy(node.userData.enemy as string);
+    const tagged = (hit: THREE.Intersection | undefined, key: string) => {
+      let node: THREE.Object3D | null = hit?.object ?? null;
+      while (node && node.userData[key] === undefined) node = node.parent;
+      return node ? (node.userData[key] as string) : null;
+    };
+    if (this.wildsScene.visible) {
+      const enemyId = tagged(
+        ray.intersectObjects(
+          [...this.enemyMeshes.values()].filter((g) => g.visible),
+          true,
+        )[0],
+        'enemy',
+      );
+      if (enemyId) {
+        this.approachEnemy(enemyId);
         return;
+      }
+      const objectId = tagged(
+        ray.intersectObjects([...this.objectMeshes.values()], true)[0],
+        'levelObject',
+      );
+      if (objectId) {
+        this.goTo(objectId);
+        return;
+      }
+      const gateId = tagged(
+        ray.intersectObjects(
+          [...this.gateMeshes.values()].filter((g) => !g.userData.open),
+          true,
+        )[0],
+        'gate',
+      );
+      if (gateId) {
+        const gate = GATES.find((g) => g.id === gateId)!;
+        this.options.onBlocked?.(gate.closedHint);
       }
     }
     if (this.villageScene.visible && ray.intersectObject(this.villageGate, true).length) {
       this.target = new THREE.Vector3(0, 0, -5.7);
+      this.route = [];
       this.pendingZone = true;
       return;
     }
     this.pendingZone = false;
     this.pendingEnemy = null;
-    const objects = this.wildsScene.visible
-      ? [...this.markers.values(), this.guardian].filter((g) => g.visible)
-      : [];
-    const hit = ray.intersectObjects(objects, true).find((h) => {
-      let o: THREE.Object3D | null = h.object;
-      while (o) {
-        if (!o.visible) return false;
-        o = o.parent;
-      }
-      return true;
-    });
-    if (hit) {
-      let o: THREE.Object3D | null = hit.object;
-      while (o && !o.userData.landmark) o = o.parent;
-      if (o) {
-        const l = LANDMARKS.find((l) => l.id === o!.userData.landmark)!;
-        this.target = new THREE.Vector3(l.x, 0, Math.min(11, l.z + 1.8));
-        this.pendingInteraction = l.id;
-        return;
-      }
-    }
     this.pendingInteraction = null;
     const point = new THREE.Vector3();
-    if (ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point)) {
-      if (this.rpg?.zone === 'village') {
-        point.x = THREE.MathUtils.clamp(point.x, -9, 8);
-        point.z = THREE.MathUtils.clamp(point.z, -6, 8);
-      } else this.clampWildsPosition(point);
+    if (!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), point)) return;
+    if (this.rpg?.zone === 'village') {
+      point.x = THREE.MathUtils.clamp(point.x, -9, 8);
+      point.z = THREE.MathUtils.clamp(point.z, -6, 8);
+      this.route = [];
       this.target = point;
-    }
+    } else this.routeTo({ x: point.x, z: point.z });
   };
   private animate = (now: number) => {
     if (this.disposed) return;
-    const dt = Math.min((now - (this.last || now)) / 1000, 0.05);
+    const rawDt = (now - (this.last || now)) / 1000;
+    const dt = Math.min(rawDt, 0.05);
     this.last = now;
     this.elapsed += dt;
-    let moving = false;
+    let moving = false,
+      moved = false;
     if (!this.paused && !document.hidden) {
       const x =
         (this.keys.has('d') || this.keys.has('arrowright') ? 1 : 0) -
@@ -1821,46 +2170,78 @@ export class JungleWorld {
         this.pendingEnemy = null;
         this.pendingZone = false;
       }
+      if (x || z) this.route = [];
       if (this.target && direction.lengthSq() === 0) {
         direction.copy(this.target).sub(this.player.position);
         direction.y = 0;
         if (direction.length() < 0.12) {
-          this.target = null;
+          this.target = this.route.shift() ?? null;
           direction.set(0, 0, 0);
         }
       }
       if (direction.lengthSq() > 0) {
         direction.normalize();
-        const p = this.player.position.clone().addScaledVector(direction, dt * 5.4);
-        if (this.rpg?.zone === 'village') {
-          p.x = THREE.MathUtils.clamp(p.x, -9, 8);
-          p.z = THREE.MathUtils.clamp(p.z, -6, 8);
-        } else this.clampWildsPosition(p);
-        p.y = p.z < -6.8 && Math.abs(p.x) < 4 ? Math.min(1.08, (-p.z - 6.8) * 1.8) : 0;
-        if (this.rpg?.zone === 'village') {
-          const blocked = (x: number, z: number) =>
-            [
-              [-6, 0, 2, 1.5],
-              [-5.5, -6, 2, 1.5],
-              [6, -1, 2, 1.5],
-              [3, 0.2, 1.05, 1.05],
-              [6, 5, 1.7, 0.85],
-            ].some(([cx, cz, rx, rz]) => Math.abs(x - cx) < rx && Math.abs(z - cz) < rz);
-          if (blocked(p.x, p.z)) {
-            if (!blocked(p.x, this.player.position.z)) p.z = this.player.position.z;
-            else if (!blocked(this.player.position.x, p.z)) p.x = this.player.position.x;
-            else p.copy(this.player.position);
+        // Low frame rates take larger steps; sub-step so no wall or gap is skipped.
+        const distance = Math.min(rawDt, 0.1) * 5.4;
+        const steps = Math.max(1, Math.ceil(distance / 0.2));
+        for (let step = 0; step < steps; step++) {
+          const p = this.player.position.clone().addScaledVector(direction, distance / steps);
+          const current = this.player.position;
+          if (this.rpg?.zone === 'village') {
+            p.x = THREE.MathUtils.clamp(p.x, -9, 8);
+            p.z = THREE.MathUtils.clamp(p.z, -6, 8);
+            const blocked = (x: number, z: number) =>
+              [
+                [-6, 0, 2, 1.5],
+                [-5.5, -6, 2, 1.5],
+                [6, -1, 2, 1.5],
+                [3, 0.2, 1.05, 1.05],
+                [6, 5, 1.7, 0.85],
+              ].some(([cx, cz, rx, rz]) => Math.abs(x - cx) < rx && Math.abs(z - cz) < rz);
+            if (blocked(p.x, p.z)) {
+              if (!blocked(p.x, current.z)) p.z = current.z;
+              else if (!blocked(current.x, p.z)) p.x = current.x;
+              else p.copy(current);
+            }
+          } else if (!isWalkable(p.x, p.z, this.open)) {
+            // Slide along clearing edges and closed gates rather than sticking.
+            if (isWalkable(p.x, current.z, this.open)) p.z = current.z;
+            else if (isWalkable(current.x, p.z, this.open)) p.x = current.x;
+            else {
+              p.copy(current);
+              // Re-plan once from here; stop only if the planner cannot help.
+              const goal = this.route.at(-1) ?? this.target;
+              this.target = null;
+              this.route = [];
+              if (goal && !this.replanned) {
+                this.replanned = true;
+                this.routeTo({ x: goal.x, z: goal.z }, false);
+              }
+              break;
+            }
+          }
+          p.y = 0;
+          moved = p.distanceToSquared(current) > 1e-6;
+          this.player.position.copy(p);
+          if (this.target && this.player.position.distanceTo(this.target) < 0.12) break;
+        }
+        if (moved) this.player.rotation.y = Math.atan2(direction.x, direction.z);
+        moving = moved;
+      }
+      let id: string | null = null;
+      if (this.wildsScene.visible) {
+        let best = INTERACT_RANGE;
+        for (const [objectId, g] of this.objectMeshes) {
+          const d = Math.hypot(
+            this.player.position.x - g.position.x,
+            this.player.position.z - g.position.z,
+          );
+          if (d < best) {
+            best = d;
+            id = objectId;
           }
         }
-        this.player.position.copy(p);
-        this.player.rotation.y = Math.atan2(direction.x, direction.z);
-        moving = true;
       }
-      const nearest = LANDMARKS.map((l) => ({
-        id: l.id,
-        d: Math.hypot(this.player.position.x - l.x, this.player.position.z - l.z),
-      })).sort((a, b) => a.d - b.d)[0];
-      const id = this.wildsScene.visible && nearest.d < 2.8 ? nearest.id : null;
       if (id !== this.nearby) {
         this.nearby = id;
         this.options.onNearby(id);
@@ -1870,12 +2251,14 @@ export class JungleWorld {
         if (!enemy) {
           this.pendingEnemy = null;
           this.target = null;
+          this.route = [];
         } else if (
           Math.hypot(this.player.position.x - enemy.x, this.player.position.z - enemy.z) < 2.25
         ) {
           const enemyId = enemy.id;
           this.pendingEnemy = null;
           this.target = null;
+          this.route = [];
           this.options.onEnemyInteract?.(enemyId);
         }
       }
@@ -1888,9 +2271,36 @@ export class JungleWorld {
         const interaction = this.pendingInteraction;
         this.pendingInteraction = null;
         this.target = null;
+        this.route = [];
         this.options.onTargetInteract(interaction);
       }
     }
+    // Follow camera in the wilds; the village keeps its framed establishing shot.
+    const focus =
+      this.rpg?.zone === 'wilds'
+        ? new THREE.Vector3(
+            THREE.MathUtils.clamp(
+              this.player.position.x,
+              LEVEL_BOUNDS.minX + 4,
+              LEVEL_BOUNDS.maxX - 4,
+            ),
+            0,
+            THREE.MathUtils.clamp(
+              this.player.position.z,
+              LEVEL_BOUNDS.minZ + 3,
+              LEVEL_BOUNDS.maxZ - 5,
+            ),
+          )
+        : new THREE.Vector3(0, 0, -1);
+    if (this.snapCamera || this.motion) this.look.copy(focus);
+    else this.look.lerp(focus, 1 - Math.exp(-dt * 5));
+    this.snapCamera = false;
+    this.camera.position.set(this.look.x + 25, 30, this.look.z + 33);
+    this.camera.lookAt(this.look);
+    this.sun.position.set(this.look.x - 12, 23, this.look.z + 8);
+    this.sun.target.position.copy(this.look);
+    this.particles.position.set(this.look.x, 0, this.look.z);
+    this.animateLevel(dt);
     if (!this.motion) {
       const stride = moving ? Math.sin(this.elapsed * 12) * 0.45 : 0;
       this.player.userData.leftLeg.rotation.x = stride;
@@ -1915,11 +2325,15 @@ export class JungleWorld {
         const health = g.getObjectByName('health');
         if (health) health.quaternion.copy(this.camera.quaternion);
       }
-      this.relics.forEach((r, i) => {
-        r.rotation.y = this.elapsed * 0.7 + i;
-        r.position.y = (r.userData.complete ? 1.27 : 1.6) + Math.sin(this.elapsed * 1.8 + i) * 0.1;
-      });
-      this.guardian.position.y = this.bossHome.y + Math.sin(this.elapsed * 1.2) * 0.045;
+      for (const g of this.objectMeshes.values()) {
+        const marker = g.getObjectByName('marker');
+        if (marker?.visible) {
+          marker.position.y = 2.9 + Math.sin(this.elapsed * 2.4 + g.position.x) * 0.14;
+          marker.rotation.y = this.elapsed * 1.6;
+        }
+        const gem = g.getObjectByName('gem');
+        if (gem && !g.userData.done) gem.rotation.y = this.elapsed * 0.8;
+      }
       this.fire.forEach((f, i) => {
         f.scale.y = 0.8 + Math.sin(this.elapsed * 9 + i) * 0.2;
       });

@@ -9,6 +9,8 @@ type Props = {
   defending?: boolean;
   defenceInfo?: { incoming: number; armour: number; damage: number };
   onTimeout?: () => void;
+  /** World puzzles (locks, seals, chests) use their own labels rather than combat ones. */
+  puzzle?: { label: string; success: string; continueLabel: string };
   title: string;
   timed: boolean;
   alreadyHinted: boolean;
@@ -100,13 +102,15 @@ export function MathEncounter(p: Props) {
       )}
       <div className="rune-meta">
         <span>
-          {quick
-            ? p.defending
-              ? 'INCOMING ATTACK · DEFEND'
-              : 'QUICK RUNE · BASIC STRIKE'
-            : p.question.tier === 'ritual'
-              ? 'ANCIENT RITUAL · ×7 DAMAGE'
-              : 'FOCUS SKILL · ×3 POWER'}
+          {p.puzzle
+            ? p.puzzle.label
+            : quick
+              ? p.defending
+                ? 'INCOMING ATTACK · DEFEND'
+                : 'QUICK RUNE · BASIC STRIKE'
+              : p.question.tier === 'ritual'
+                ? 'ANCIENT RITUAL · ×7 DAMAGE'
+                : 'FOCUS SKILL · ×3 POWER'}
         </span>
         <span>
           <Shield size={12} />
@@ -118,11 +122,11 @@ export function MathEncounter(p: Props) {
       {result === 'correct' ? (
         <div className="rune-success">
           <Check size={36} />
-          <h3>{quick ? 'Direct hit!' : 'Power unleashed.'}</h3>
+          <h3>{p.puzzle ? p.puzzle.success : quick ? 'Direct hit!' : 'Power unleashed.'}</h3>
           <p>{p.question.explanation}</p>
           {!quick && (
-            <button className="primary full" onClick={p.onFinish}>
-              Return to the fight
+            <button className="primary full" onClick={p.onFinish} autoFocus>
+              {p.puzzle ? p.puzzle.continueLabel : 'Return to the fight'}
               <ArrowRight size={16} />
             </button>
           )}
@@ -248,7 +252,11 @@ export function MathEncounter(p: Props) {
       </section>
     );
   return (
-    <Modal title={p.title} eyebrow="CHANNEL YOUR POWER" onClose={p.onClose}>
+    <Modal
+      title={p.title}
+      eyebrow={p.puzzle ? 'UNTIMED PUZZLE · TAKE YOUR TIME' : 'CHANNEL YOUR POWER'}
+      onClose={p.onClose}
+    >
       {content}
     </Modal>
   );

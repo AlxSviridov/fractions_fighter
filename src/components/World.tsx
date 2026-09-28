@@ -20,6 +20,7 @@ type Props = {
   onTargetInteract: (id: string) => void;
   onEnemyInteract: (id: string) => void;
   onZoneInteract: (zone: 'village' | 'wilds') => void;
+  onBlocked: (message: string) => void;
   onPosition: (x: number, z: number) => void;
 };
 const World = forwardRef<WorldHandle, Props>(function World(props, ref) {
@@ -49,6 +50,7 @@ const World = forwardRef<WorldHandle, Props>(function World(props, ref) {
       world = new JungleWorld(host.current!, latest.current.save, {
         onEnemyInteract: (id) => latest.current.onEnemyInteract(id),
         onZoneInteract: (zone) => latest.current.onZoneInteract(zone),
+        onBlocked: (message) => latest.current.onBlocked(message),
         onNearby: (id) => latest.current.onNearby(id),
         onInteract: () => latest.current.onInteract(),
         onTargetInteract: (id) => latest.current.onTargetInteract(id),

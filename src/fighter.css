@@ -2551,3 +2551,282 @@
     bottom: 185px;
   }
 }
+
+/* ---- Emerald Trail level HUD: map, region banner, objective and interactions ---- */
+.trail-map {
+  position: absolute;
+  top: 188px;
+  left: 29px;
+  width: 132px;
+  margin: 0;
+  padding: 8px 8px 6px;
+  background: linear-gradient(160deg, #22301fe8, #18261ddd);
+  border: 1px solid #a18e5657;
+  box-shadow: 0 9px 25px #0003;
+  pointer-events: none;
+}
+.trail-map figcaption {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Cinzel', serif;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #b9b38b;
+  margin-bottom: 5px;
+}
+.trail-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.map-river {
+  fill: #2f7f76;
+  opacity: 0.8;
+}
+.map-region {
+  fill: #7f8a60;
+  stroke: #c9b27844;
+  stroke-width: 0.3;
+}
+.map-region.fogged {
+  fill: #3a4834;
+  stroke-dasharray: 0.8 0.8;
+}
+.map-gate {
+  fill: #b5534a;
+}
+.map-gate.open {
+  fill: #b39a63;
+}
+.map-object.task {
+  fill: #f0cf74;
+}
+.map-object.free {
+  fill: #f4f0d8;
+}
+.map-object.done {
+  fill: #5d6a58;
+}
+.map-enemy {
+  fill: #d9644f;
+}
+.map-enemy.elite,
+.map-enemy.boss {
+  fill: #f08a3a;
+  stroke: #2a1a14;
+  stroke-width: 0.3;
+}
+.map-objective {
+  fill: none;
+  stroke: #f7e2a0;
+  stroke-width: 0.5;
+  animation: map-pulse 1.6s ease-in-out infinite;
+}
+.map-player {
+  fill: #fff4c8;
+  stroke: #1d2a20;
+  stroke-width: 0.4;
+}
+@keyframes map-pulse {
+  50% {
+    stroke-width: 1.1;
+    opacity: 0.5;
+  }
+}
+.region-banner {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 14px 34px 16px;
+  text-align: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, #11201acc 0, #11201a99 55%, transparent 75%);
+  animation: region-in 4.2s ease forwards;
+}
+.region-banner span {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #c9b278;
+}
+.region-banner strong {
+  font-family: 'Cinzel', serif;
+  font-size: 30px;
+  font-weight: 600;
+  color: #f2e4b5;
+  text-shadow: 0 3px 16px #000c;
+}
+.region-banner small {
+  max-width: 440px;
+  font-size: 13px;
+  color: #c7cfb4;
+  text-shadow: 0 2px 8px #000;
+}
+@keyframes region-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  12%,
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.reduced-motion .region-banner,
+.reduced-motion .map-objective {
+  animation: none;
+}
+.ff-quest .objective-text {
+  color: #efe3bd;
+}
+.ff-quest .guide-button {
+  color: #f0cf74;
+}
+.enemy-tracker > div > small {
+  font-size: 9px;
+  color: #9cad85;
+}
+.tracker-empty {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  color: #aab48d;
+}
+.interact-prompt {
+  position: absolute;
+  z-index: 13;
+  left: 50%;
+  bottom: 158px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  border: 1px solid #c9b278;
+  background: #172a24f0;
+  color: #f2dfac;
+  box-shadow: 0 8px 22px #0006;
+  text-align: left;
+}
+.interact-prompt span {
+  display: grid;
+  font-size: 14px;
+}
+.interact-prompt small {
+  font-size: 11px;
+  color: #aab48d;
+}
+.interact-prompt kbd {
+  border: 1px solid #a18e56;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #d8c68c;
+}
+.object-task,
+.object-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #86e7c544;
+  background: #86e7c50f;
+}
+.object-task span {
+  display: grid;
+  gap: 3px;
+}
+.object-task small {
+  color: #aab48d;
+}
+.object-status {
+  border-color: #c9b27844;
+  background: #c9b2780f;
+  color: #d8cfaa;
+}
+.lore-text {
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px;
+  line-height: 1.55;
+  font-style: italic;
+  color: #e7dcb9;
+}
+.trail-discoveries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0 4px;
+  font-size: 12px;
+  color: #c7cfb4;
+}
+.trail-discoveries span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.rarity-text-common {
+  color: #e6e1cf;
+}
+.rarity-text-uncommon {
+  color: #8fb7ee;
+}
+.rarity-text-rare {
+  color: #8fb7ee;
+}
+.rarity-text-legendary {
+  color: #e8c264;
+}
+@media (min-width: 721px) and (max-height: 800px) {
+  .trail-map {
+    top: 180px;
+    width: 104px;
+  }
+  .region-banner strong {
+    font-size: 24px;
+  }
+}
+@media (max-width: 800px), (max-height: 600px) {
+  .trail-map {
+    display: none;
+  }
+  .interact-prompt {
+    bottom: 128px;
+  }
+}
+.trail-guide {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0;
+}
+.trail-guide h3 {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #c9b278;
+  margin-bottom: 4px;
+}
+.trail-guide button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #8892532c;
+  text-align: left;
+  color: #e7dcb9;
+}
+.trail-guide button span {
+  flex: 1;
+  display: grid;
+}
+.trail-guide small {
+  font-size: 11px;
+  color: #aab48d;
+}
