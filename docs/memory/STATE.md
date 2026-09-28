@@ -17,7 +17,8 @@ Not delivered: the spell-only door (the sanctum is maths-sealed), moving enemies
 
 - `npm test`: 100 tests across 14 files pass, including the new `level.test.ts` (12) and `taskBank.test.ts` (7). Strict TypeScript and the production build pass.
 - Browser journey `complete expedition…` **passed in a real Chromium** (software WebGL, 1024×640 via a local config override, `FF_CHROMIUM_PATH=/opt/pw-browsers/chromium`): new hero → Haven → Emerald Trail banner/map/tracker → prowler with wrong answer, hint and retry → Tidefang equip → free chest → winch → code lock → Captain Redsail → three seals → Shard Guardian with travel wards → reward → reload → journal → export → expedition 2 starts at "Defeat Captain Redsail" with 2/5 objectives → import. It took 5.5 minutes because the container renders at 1–3 fps; the pre-change build measured the same fps, so this is not a regression.
-- Remaining six browser tests: see the session note for the final result.
+- Final full browser suite on the final code: **7/7 passed (8.9 min)**. Two harness races were fixed on the way: a pre-existing ward-timer race that also failed 1 of 3 runs on the baseline commit, and a travel-ward helper that wrongly required no open dialog. Details are in TESTING.md and the session note.
+- Also fixed: entering the wilds briefly used the village position for region and threat checks.
 - Rendered screenshots were inspected at Waterfall Landing, the Fern Hollow bridge and the cleared Shard Sanctuary.
 
 ## Previous increment — inventory (14 September 2026)

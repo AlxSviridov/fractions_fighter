@@ -32,6 +32,8 @@ Questions for the owner: Did the child voluntarily pursue the next discovery? Co
 
 Set `FF_CHROMIUM_PATH` to an existing Chromium binary (for example `/opt/pw-browsers/chromium` in cloud containers) instead of downloading. In software-rendered containers the 3D scene may run at 1–3 fps, so the full journey can take many minutes. That speed is not a laptop benchmark.
 
+Real-time ward timers and slow software rendering can race. On 28 September 2026, the ward test failed intermittently here on **both** the baseline commit (1 of 3 runs) and the level branch. The trace showed a single Playwright click taking 22 seconds at 1 fps, during which a ward opened and expired. The test now waits for the ward immediately after arrival and uses the player's own "Let me think" pause before answering the block case. Expiry itself is covered by the dedicated timer test. Do not "fix" such races by raising game timers or forcing clicks.
+
 ## Explicit local preview port
 
 Default browser tests use port 4173. If another preview already owns it, start this

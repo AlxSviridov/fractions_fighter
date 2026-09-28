@@ -76,6 +76,7 @@ import {
   LEVEL_OBJECTS,
   OBJECTIVES,
   REGIONS,
+  SPAWN,
   THREAT_RADIUS,
   enemyAccessible,
   nextObjective,
@@ -400,6 +401,9 @@ export default function App() {
     if (cast || resolving) return;
     const next = enterZone(rpg, zone);
     updateRpg(next);
+    // The renderer places the hero at the zone entrance; mirror it immediately so
+    // region banners and threat distances never use the previous zone's position.
+    if (next.zone !== rpg.zone) setPosition(next.zone === 'wilds' ? [SPAWN.x, SPAWN.z] : [0, 4]);
     setSelectedEnemy(null);
     setPanel(null);
     setLoot(null);

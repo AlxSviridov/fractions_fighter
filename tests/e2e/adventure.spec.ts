@@ -17,7 +17,8 @@ async function createHero(page: Page, name: string, avatar = 'The Mooncat') {
 }
 const travelWards = new WeakMap<Page, number>();
 async function handleTravelWard(page: Page) {
-  await solve(page);
+  // Walking resumes after a ward, so an object dialog may legitimately open next.
+  await solve(page, page.getByRole('dialog', { name: /Raise your ward/ }));
   travelWards.set(page, (travelWards.get(page) ?? 0) + 1);
 }
 async function approach(page: Page, enemy: string) {
@@ -82,7 +83,7 @@ async function quickAnswer(page: Page) {
     [c, d] = rational(right);
   return a * d < c * b ? '<' : a * d > c * b ? '>' : '=';
 }
-async function solve(page: Page) {
+async function solve(page: Page, closes = page.getByRole('dialog')) {
   if (await page.locator('.rune-fall-card').count()) {
     await page
       .getByRole('button', { name: `Answer ${await quickAnswer(page)}`, exact: true })
@@ -101,7 +102,7 @@ async function solve(page: Page) {
     await page.getByLabel(/^Your answer/).fill(String(answer));
     await page.getByLabel(/^Your answer/).press('Enter');
   }
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(closes).toHaveCount(0);
   await expect(page.locator('.impact-banner')).toHaveCount(0);
 }
 async function awaitDefence(page: Page, enemy: string) {
@@ -317,14 +318,20 @@ test('a nearby enemy telegraphs, ward maths blocks or mitigates attacks, and lon
   await createHero(page, 'Ward Tester');
   await page.getByRole('button', { name: 'Enter the wilds', exact: true }).click();
   await approach(page, 'Bramble Prowler');
-  await page.getByLabel('Deselect target').click();
 
+  // Wait for the ward straight away: under software WebGL a slow UI action here
+  // can outlast the 8-second wind-up plus the whole ward timer.
   const blocked = await awaitDefence(page, 'Bramble Prowler');
   expect(blocked.incoming).toBeGreaterThan(blocked.armour);
   expect(blocked.damage).toBeGreaterThan(0);
+  // Pause this ward's real-time clock (a player option) so a slow software-rendered
+  // browser cannot let it expire between reading and answering; expiry has its own test.
+  await page.getByRole('button', { name: 'Let me think', exact: true }).click();
+  await expect(page.locator('.rune-meta')).toContainText('Take your time');
   await solve(page);
   await expect(page.locator('.health-orb strong')).toHaveText('100');
   await expect(page.getByRole('status')).toContainText('Attack blocked!');
+  await page.getByLabel('Deselect target').click();
 
   const hit = await awaitDefence(page, 'Bramble Prowler');
   const beforeWrong = Number(await page.locator('.health-orb strong').innerText());

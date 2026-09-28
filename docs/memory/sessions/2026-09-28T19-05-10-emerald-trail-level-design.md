@@ -28,7 +28,11 @@ See decision 0005. Authored data over procedural terrain, because pacing matters
 - A first attempt exposed a real bug: grid paths could hug a rectangle edge exactly, and float drift then stopped the hero at the bridge head. Fixed with 0.35-unit route clearance, edge-tolerant arrival and a single re-plan on a hard block. The rerun passed.
 - The container renders at about 1–3 fps; the baseline commit measured the same, so this is not a regression. Movement is now sub-stepped (≤ 0.2 units) so a slow frame cannot skip a 0.5-unit gap between areas.
 - Screenshots inspected: Waterfall Landing, the Fern Hollow bridge after lowering, the cleared Shard Sanctuary.
-- Remaining six browser tests: RESULT_PENDING.
+- Other six browser tests: 6/6 passed on the level build (full-suite run, 6.9 min) after two harness races were fixed. Both are documented in TESTING.md:
+  1. **Ward test** (pre-existing): it failed 1 of 3 runs on the untouched baseline commit too. The trace showed a 22-second `Deselect target` click at 1 fps, during which a ward opened and expired. The test now waits for the ward immediately and uses the game's "Let me think" pause for the block case; after that change it passed.
+  2. **Journey test** (new): after a travel ward, walking resumed and the Bridge Winch dialog opened, but the helper expected no dialogs. `handleTravelWard` now waits only for the ward dialog to close. Rerun: journey passed (7.5 min).
+- Final full-suite run on the final code: **7/7 passed (8.9 min)**, real Chromium with software WebGL at 1024×640.
+- Also fixed: entering the wilds reused the village position for region/threat checks (a wrong banner could flash). Position now resets to the spawn point on travel.
 
 ## Known limitations / blockers
 
